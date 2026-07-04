@@ -25,8 +25,14 @@
 
 html, body, #root { height: 100%; }
 
+/* Ни одна страница не должна прокручиваться по горизонтали на телефоне.
+   overflow-x: clip (в отличие от hidden) не создаёт скролл-контейнер и не ломает
+   sticky-шапку кабинета. */
+html, body { overflow-x: clip; }
+
 body {
   margin: 0;
+  max-width: 100%;
   font-family: var(--font);
   color: var(--text);
   background:
