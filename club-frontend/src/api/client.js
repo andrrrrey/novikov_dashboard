@@ -1,6 +1,6 @@
 // Тонкий клиент над fetch. Токен храним в localStorage, кладём в Authorization.
 
-const BASE = import.meta.env.VITE_API_BASE || "/api";
+const BASE = import.meta.env.VITE_API_BASE || "/club/api";
 const TOKEN_KEY = "club_token";
 
 export function getToken() {

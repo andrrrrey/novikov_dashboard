@@ -1,0 +1,18 @@
+# Скопировать в /etc/systemd/system/club-backend.service
+# Подставь: SECRET_KEY, ADMIN_PASSWORD и, если нужно, User (тот, кто владеет репозиторием).
+[Unit]
+Description=Novikov club FastAPI backend
+After=network.target
+
+[Service]
+User=deploy
+WorkingDirectory=/var/www/novikov_dashboard/club-backend
+Environment="SECRET_KEY=ЗАМЕНИ_НА_СЛУЧАЙНЫЙ_КЛЮЧ"
+Environment="ADMIN_EMAIL=admin@club.ru"
+Environment="ADMIN_PASSWORD=ЗАМЕНИ_НА_НАДЁЖНЫЙ_ПАРОЛЬ"
+Environment="DATABASE_URL=sqlite:////var/www/novikov_dashboard/club-backend/club.db"
+ExecStart=/var/www/novikov_dashboard/club-backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
