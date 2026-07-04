@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+sqlmodel
+passlib
+pyjwt
+pydantic[email]
+python-multipart
+httpx
+pytest
