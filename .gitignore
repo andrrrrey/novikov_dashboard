@@ -1,0 +1,16 @@
+# Зависимости
+node_modules/
+
+# Сборка фронтенда
+dist/
+*.local
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# Логи и системные файлы
+*.log
+.DS_Store
