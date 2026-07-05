@@ -30,7 +30,7 @@
   overflow: hidden; margin-bottom: 20px;
 }
 .quiz-progress-bar {
-  height: 100%; background: linear-gradient(90deg, var(--blue), var(--purple));
+  height: 100%; background: linear-gradient(90deg, #4fbf3a, var(--green));
   transition: width 0.3s ease;
 }
 .quiz-meta { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
@@ -50,8 +50,8 @@
   width: 20px; height: 20px; flex-shrink: 0; border-radius: 50%;
   border: 2px solid var(--text-faint); transition: all 0.15s ease;
 }
-.quiz-option.is-selected { border-color: var(--blue); background: rgba(59, 158, 255, 0.1); }
-.quiz-option.is-selected .quiz-radio { border-color: var(--blue); background: var(--blue); box-shadow: inset 0 0 0 3px #0f1728; }
+.quiz-option.is-selected { border-color: var(--blue); background: rgba(108, 222, 82, 0.1); }
+.quiz-option.is-selected .quiz-radio { border-color: var(--blue); background: var(--blue); box-shadow: inset 0 0 0 3px var(--panel); }
 .quiz-nav { display: flex; justify-content: space-between; gap: 12px; margin-top: 22px; }
 .quiz-hint { font-size: 13px; margin: 12px 0 0; text-align: right; }
 
@@ -89,7 +89,7 @@
 .dash-card-num {
   width: 30px; height: 30px; border-radius: 8px;
   display: grid; place-items: center; font-weight: 800; font-size: 15px;
-  color: var(--blue); background: rgba(59, 158, 255, 0.12); border: 1px solid rgba(59, 158, 255, 0.3);
+  color: var(--blue); background: rgba(108, 222, 82, 0.12); border: 1px solid rgba(108, 222, 82, 0.3);
 }
 .dash-card-title { font-size: 15px; font-weight: 600; line-height: 1.4; flex: 1; }
 .dash-card-cta { font-size: 13px; color: var(--text-dim); font-weight: 600; }
@@ -115,7 +115,7 @@
 .admin-mini { height: 32px; padding: 0 12px; font-size: 13px; }
 .admin-danger:hover { border-color: var(--red); background: rgba(255, 107, 107, 0.08); }
 .tag { font-style: normal; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; }
-.tag-ok { color: var(--green); background: rgba(52, 227, 154, 0.12); }
+.tag-ok { color: var(--green); background: rgba(108, 222, 82, 0.12); }
 .tag-wait { color: var(--gold); background: rgba(231, 178, 76, 0.12); }
 
 @media (max-width: 560px) {

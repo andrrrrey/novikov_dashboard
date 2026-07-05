@@ -177,15 +177,15 @@ export default function Hourglass({ levels, bottleneck, hint }) {
         <span className="hg-slider-note">Общий уровень появится после подключения GetCourse</span>
       </div>
 
-      <div className="hg-bottleneck" style={{ borderColor: `${bn.base}55` }}>
-        <div className="hg-bulb" style={{ color: bn.base }}>
+      <div className="hg-bottleneck" style={{ borderColor: "rgba(108, 222, 82, 0.35)" }}>
+        <div className="hg-bulb" style={{ color: "var(--green)" }}>
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1h6c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2Z" />
           </svg>
         </div>
         <div>
-          <div className="hg-bn-title" style={{ color: bn.base }}>Рекомендация</div>
+          <div className="hg-bn-title" style={{ color: "var(--green)" }}>Рекомендация</div>
           <div className="hg-bn-hint">{cleanHint}</div>
         </div>
       </div>
