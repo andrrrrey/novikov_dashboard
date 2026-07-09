@@ -11,11 +11,14 @@ export function setToken(token) {
   else localStorage.removeItem(TOKEN_KEY);
 }
 
-async function request(path, { method = "GET", body, form, auth = true } = {}) {
+async function request(path, { method = "GET", body, form, formData, auth = true } = {}) {
   const headers = {};
   const opts = { method, headers };
 
-  if (form) {
+  if (formData) {
+    // multipart: Content-Type c boundary проставит браузер сам
+    opts.body = formData;
+  } else if (form) {
     opts.body = new URLSearchParams(form);
     headers["Content-Type"] = "application/x-www-form-urlencoded";
   } else if (body !== undefined) {
@@ -52,4 +55,14 @@ export const api = {
   updateUser: (id, patch) => request(`/admin/users/${id}`, { method: "PATCH", body: patch }),
   deleteUser: (id) => request(`/admin/users/${id}`, { method: "DELETE" }),
   stats: () => request("/admin/stats"),
+
+  listCards: () => request("/admin/cards"),
+  updateCard: (id, patch) => request(`/admin/cards/${id}`, { method: "PATCH", body: patch }),
+  listHints: () => request("/admin/hints"),
+  updateHint: (id, patch) => request(`/admin/hints/${id}`, { method: "PATCH", body: patch }),
+  uploadImage: (file) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return request("/admin/upload", { method: "POST", formData: fd });
+  },
 };

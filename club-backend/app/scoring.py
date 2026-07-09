@@ -1,20 +1,20 @@
 """
 Движок скоринга квиза «Моя траектория».
 
-Логика согласно документу клиента (Логика_траектория, лист «Логика бот - приложение»):
+Логика:
 
-1. Квиз — 9 вопросов, по 3 на каждый аспект (Маркетинг / Продажи / Менеджмент).
-   Каждый ответ А/Б/В соответствует уровню 1/2/3.
+1. Квиз — 3 вопроса, по одному на каждый аспект (Маркетинг / Продажи / Менеджмент).
+   Каждый вариант ответа явно соответствует уровню 1/2/3, поэтому уровень аспекта —
+   это уровень выбранного варианта (маппинг вариант→уровень живёт в quiz_data.py).
 
-2. Уровень аспекта по трём его ответам:
-   - если 2 или 3 ответа одинаковые → уровень этого ответа (мажоритарно);
-   - если все три ответа разные (А+Б+В) → минимальный уровень (то есть 1).
-
-3. Узкое место = аспект с минимальным уровнем.
+2. Узкое место = аспект с минимальным уровнем.
    При равенстве уровней приоритет: Продажи → Маркетинг → Менеджмент.
+
+3. Если все три уровня равны — бизнес «в балансе» (balanced=True); визуализация
+   рисует цилиндр вместо песочных часов, но условное узкое место всё равно
+   определяется по приоритету для показа рекомендации.
 """
 
-from collections import Counter
 from enum import Enum
 
 
@@ -35,25 +35,6 @@ ASPECT_LABELS = {
 }
 
 
-def aspect_level(answers: list[int]) -> int:
-    """
-    Уровень одного аспекта по трём ответам.
-
-    answers — ровно три значения из {1, 2, 3} (уже отображённые из А/Б/В).
-    Мажоритарное правило; при трёх разных ответах — минимум.
-    """
-    if len(answers) != 3:
-        raise ValueError("Ожидается ровно 3 ответа на аспект")
-    if any(a not in (1, 2, 3) for a in answers):
-        raise ValueError("Ответы должны быть 1, 2 или 3")
-
-    level, freq = Counter(answers).most_common(1)[0]
-    if freq >= 2:
-        return level
-    # все три разные -> минимальный уровень
-    return min(answers)
-
-
 def bottleneck(levels: dict[Aspect, int]) -> tuple[Aspect, int]:
     """
     Узкое место = аспект с минимальным уровнем.
@@ -66,18 +47,23 @@ def bottleneck(levels: dict[Aspect, int]) -> tuple[Aspect, int]:
     raise RuntimeError("Не удалось определить узкое место")  # недостижимо
 
 
-def evaluate(answers_by_aspect: dict[Aspect, list[int]]) -> dict:
+def evaluate(levels_by_aspect: dict[Aspect, int]) -> dict:
     """
     Полный расчёт результата квиза.
 
-    Вход:  {Aspect.MARKETING: [1,2,3], Aspect.SALES: [...], Aspect.MANAGEMENT: [...]}
+    Вход:  {Aspect.MARKETING: 2, Aspect.SALES: 1, Aspect.MANAGEMENT: 3} — по
+           одному уровню (1..3) на аспект.
     Выход: словарь с уровнями по аспектам + узкое место (аспект и уровень).
+           Флаг balanced (все уровни равны) не хранится, а выводится на дашборде
+           из самих уровней — см. main._build_dashboard.
     """
     required = {Aspect.MARKETING, Aspect.SALES, Aspect.MANAGEMENT}
-    if set(answers_by_aspect) != required:
-        raise ValueError("Нужны ответы ровно по трём аспектам")
+    if set(levels_by_aspect) != required:
+        raise ValueError("Нужны уровни ровно по трём аспектам")
+    if any(lvl not in (1, 2, 3) for lvl in levels_by_aspect.values()):
+        raise ValueError("Уровень аспекта должен быть 1, 2 или 3")
 
-    levels = {aspect: aspect_level(ans) for aspect, ans in answers_by_aspect.items()}
+    levels = levels_by_aspect
     b_aspect, b_level = bottleneck(levels)
 
     return {

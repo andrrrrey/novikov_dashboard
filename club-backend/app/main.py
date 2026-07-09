@@ -4,19 +4,24 @@ GetCourse и связанный с ним прогресс в этот скоу�
 """
 
 import json
+import os
+import uuid
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session, select
 
+from app.config import UPLOAD_DIR
 from app.database import get_session, init_db
 from app.models import ContentCard, QuizResult, TrajectoryHint, User
 from app.quiz_data import QUIZ, answers_to_levels
 from app.schemas import (
-    AdminStats, CardOut, DashboardOut, QuizOption, QuizQuestionOut,
-    QuizSubmit, TokenResponse, UserCreate, UserOut, UserUpdate,
+    AdminStats, CardAdminOut, CardOut, CardUpdate, DashboardOut, HintOut,
+    HintUpdate, QuizOption, QuizQuestionOut, QuizSubmit, TokenResponse,
+    UploadOut, UserCreate, UserOut, UserUpdate,
 )
 from app.scoring import evaluate, Aspect
 from app.security import (
@@ -24,6 +29,15 @@ from app.security import (
     require_admin, verify_password,
 )
 from app.seed import seed
+
+# Разрешённые типы обложек и лимит размера загрузки.
+ALLOWED_IMAGE_TYPES = {
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/webp": ".webp",
+}
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 МБ
+
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -41,6 +55,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Загруженные обложки. Внешне доступно как /club/api/uploads/... через nginx.
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 
 # ---------------------------------------------------------------- Авторизация
@@ -67,7 +85,10 @@ def get_quiz(_: User = Depends(get_current_user)):
             code=q["code"],
             aspect=q["aspect"].value,
             text=q["text"],
-            options=[QuizOption(level=i, text=t) for i, t in enumerate(q["options"], 1)],
+            options=[
+                QuizOption(index=i, text=opt["text"])
+                for i, opt in enumerate(q["options"], 1)
+            ],
         )
         for q in QUIZ
     ]
@@ -132,6 +153,10 @@ def _build_dashboard(user: User, session: Session) -> DashboardOut:
         .order_by(ContentCard.position)
     ).all()
 
+    balanced = (
+        result.marketing_level == result.sales_level == result.management_level
+    )
+
     return DashboardOut(
         quiz_taken=True,
         marketing_level=result.marketing_level,
@@ -139,6 +164,7 @@ def _build_dashboard(user: User, session: Session) -> DashboardOut:
         management_level=result.management_level,
         bottleneck_aspect=result.bottleneck_aspect,
         bottleneck_level=result.bottleneck_level,
+        balanced=balanced,
         hint=hint.hint_text if hint else None,
         cards=[CardOut(position=c.position, title=c.title,
                        getcourse_url=c.getcourse_url, cover=c.cover) for c in cards],
@@ -227,3 +253,89 @@ def admin_stats(_: User = Depends(require_admin), session: Session = Depends(get
     completed = len(session.exec(select(QuizResult)).all())
     return AdminStats(total_users=total, quiz_completed=completed,
                       quiz_pending=max(total - completed, 0))
+
+
+# ---------------------------------------------- Админка: карточки и подсказки
+@app.get("/admin/cards", response_model=list[CardAdminOut])
+def list_cards(_: User = Depends(require_admin), session: Session = Depends(get_session)):
+    cards = session.exec(
+        select(ContentCard).order_by(
+            ContentCard.aspect, ContentCard.level, ContentCard.position
+        )
+    ).all()
+    return [
+        CardAdminOut(id=c.id, aspect=c.aspect, level=c.level, position=c.position,
+                     title=c.title, getcourse_url=c.getcourse_url, cover=c.cover)
+        for c in cards
+    ]
+
+
+@app.patch("/admin/cards/{card_id}", response_model=CardAdminOut)
+def update_card(
+    card_id: int,
+    payload: CardUpdate,
+    _: User = Depends(require_admin),
+    session: Session = Depends(get_session),
+):
+    card = session.get(ContentCard, card_id)
+    if not card:
+        raise HTTPException(status_code=404, detail="Карточка не найдена")
+    # exclude_unset: меняем только явно переданные поля.
+    for key, value in payload.model_dump(exclude_unset=True).items():
+        if key in ("getcourse_url", "cover") and not value:
+            value = None   # пустая строка от админа = очистить ссылку/обложку
+        setattr(card, key, value)
+    session.add(card)
+    session.commit()
+    session.refresh(card)
+    return CardAdminOut(id=card.id, aspect=card.aspect, level=card.level,
+                        position=card.position, title=card.title,
+                        getcourse_url=card.getcourse_url, cover=card.cover)
+
+
+@app.get("/admin/hints", response_model=list[HintOut])
+def list_hints(_: User = Depends(require_admin), session: Session = Depends(get_session)):
+    hints = session.exec(
+        select(TrajectoryHint).order_by(TrajectoryHint.aspect, TrajectoryHint.level)
+    ).all()
+    return [
+        HintOut(id=h.id, aspect=h.aspect, level=h.level, hint_text=h.hint_text)
+        for h in hints
+    ]
+
+
+@app.patch("/admin/hints/{hint_id}", response_model=HintOut)
+def update_hint(
+    hint_id: int,
+    payload: HintUpdate,
+    _: User = Depends(require_admin),
+    session: Session = Depends(get_session),
+):
+    hint = session.get(TrajectoryHint, hint_id)
+    if not hint:
+        raise HTTPException(status_code=404, detail="Подсказка не найдена")
+    hint.hint_text = payload.hint_text
+    session.add(hint)
+    session.commit()
+    session.refresh(hint)
+    return HintOut(id=hint.id, aspect=hint.aspect, level=hint.level,
+                   hint_text=hint.hint_text)
+
+
+@app.post("/admin/upload", response_model=UploadOut)
+async def upload_cover(
+    file: UploadFile,
+    _: User = Depends(require_admin),
+):
+    ext = ALLOWED_IMAGE_TYPES.get(file.content_type)
+    if not ext:
+        raise HTTPException(status_code=400,
+                            detail="Допустимы только PNG, JPEG или WEBP")
+    data = await file.read()
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=400, detail="Файл больше 5 МБ")
+
+    name = f"{uuid.uuid4().hex}{ext}"
+    with open(os.path.join(UPLOAD_DIR, name), "wb") as fh:
+        fh.write(data)
+    return UploadOut(url=f"/club/api/uploads/{name}")
