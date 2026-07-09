@@ -1,6 +1,8 @@
-// Объёмная колба «Состояние бизнеса», вариант «узкое место — в центре».
-// Узкий аспект (из квиза) занимает горлышко: заливка, подпись, метка и цифра — по центру.
-// Два других аспекта занимают верхнюю и нижнюю чаши (в каноническом порядке).
+// Объёмная колба «Состояние бизнеса».
+// По умолчанию — песочные часы: узкий аспект (узкое место) занимает горлышко,
+// два других — верхнюю и нижнюю чаши (в каноническом порядке).
+// Если уровни всех трёх аспектов равны (balanced) — рисуем прямой цилиндр:
+// три равные секции, без горлышка и без плашки «узкое место».
 // Цвет закреплён за аспектом. Верхняя шкала 1–10 — плейсхолдер под GetCourse.
 
 const ASPECTS = {
@@ -10,25 +12,16 @@ const ASPECTS = {
 };
 const ORDER = ["management", "marketing", "sales"]; // канонический порядок
 
-const CX = 160, TOP_Y = 44, TOP_RX = 94, RIM_RY = 16;
-const NECK_Y = 212, NECK_HW = 13, BOT_Y = 392, BOT_RX = 94;
-const VB_TOP = -52, VB_H = 484;
+const CX = 160, RIM_RY = 16, TOP_Y = 44, BOT_Y = 392;
 
-// Слоты по высоте: верхняя чаша, горлышко (узкое место), нижняя чаша.
-const SLOTS = {
-  top:    { yc: 128, zone: [72, 190] },
-  neck:   { yc: 212, zone: [186, 238] },
-  bottom: { yc: 316, zone: [252, 384] },
-};
+// Песочные часы
+const HG_TOP_RX = 94, HG_BOT_RX = 94, NECK_Y = 212, NECK_HW = 13;
+// Цилиндр (постоянная полуширина)
+const CYL_RX = 76;
 
-const SIL =
-  `M${CX - TOP_RX},${TOP_Y} L${CX + TOP_RX},${TOP_Y} L${CX + NECK_HW},${NECK_Y}` +
-  ` L${CX + BOT_RX},${BOT_Y} L${CX - BOT_RX},${BOT_Y} L${CX - NECK_HW},${NECK_Y} Z`;
+// viewBox: шапка собственника убрана, поэтому верхнего запаса почти нет.
+const VB_TOP = 16, VB_H = 408;
 
-function hwAtY(y) {
-  if (y <= NECK_Y) return Math.max(TOP_RX + (y - TOP_Y) / (NECK_Y - TOP_Y) * (NECK_HW - TOP_RX), NECK_HW);
-  return NECK_HW + (y - NECK_Y) / (BOT_Y - NECK_Y) * (BOT_RX - NECK_HW);
-}
 function surfaceY(zone, level) {
   return zone[1] - (level / 3) * (zone[1] - zone[0]);
 }
@@ -36,15 +29,58 @@ function pct(y) {
   return Math.min(94, Math.max(6, ((y - VB_TOP) / VB_H) * 100));
 }
 
-export default function Hourglass({ levels, bottleneck, hint }) {
-  const rest = ORDER.filter((a) => a !== bottleneck.aspect);
-  const placement = { top: rest[0], neck: bottleneck.aspect, bottom: rest[1] };
+// Геометрия песочных часов.
+function hourglassGeo() {
+  const SIL =
+    `M${CX - HG_TOP_RX},${TOP_Y} L${CX + HG_TOP_RX},${TOP_Y} L${CX + NECK_HW},${NECK_Y}` +
+    ` L${CX + HG_BOT_RX},${BOT_Y} L${CX - HG_BOT_RX},${BOT_Y} L${CX - NECK_HW},${NECK_Y} Z`;
+  const hw = (y) =>
+    y <= NECK_Y
+      ? Math.max(HG_TOP_RX + (y - TOP_Y) / (NECK_Y - TOP_Y) * (NECK_HW - HG_TOP_RX), NECK_HW)
+      : NECK_HW + (y - NECK_Y) / (BOT_Y - NECK_Y) * (HG_BOT_RX - NECK_HW);
+  return {
+    SIL, hw, topRx: HG_TOP_RX, botRx: HG_BOT_RX,
+    order: ["top", "neck", "bottom"],
+    slots: {
+      top:    { yc: 128, zone: [72, 190] },
+      neck:   { yc: 212, zone: [186, 238] },
+      bottom: { yc: 316, zone: [252, 384] },
+    },
+  };
+}
 
-  const slots = ["top", "neck", "bottom"].map((slot) => {
+// Геометрия цилиндра: прямая труба, три равные секции.
+function cylinderGeo() {
+  const SIL =
+    `M${CX - CYL_RX},${TOP_Y} L${CX + CYL_RX},${TOP_Y}` +
+    ` L${CX + CYL_RX},${BOT_Y} L${CX - CYL_RX},${BOT_Y} Z`;
+  const H = (BOT_Y - TOP_Y) / 3;
+  return {
+    SIL, hw: () => CYL_RX, topRx: CYL_RX, botRx: CYL_RX,
+    order: ["top", "mid", "bottom"],
+    slots: {
+      top:    { yc: TOP_Y + H * 0.5, zone: [TOP_Y, TOP_Y + H] },
+      mid:    { yc: TOP_Y + H * 1.5, zone: [TOP_Y + H, TOP_Y + 2 * H] },
+      bottom: { yc: TOP_Y + H * 2.5, zone: [TOP_Y + 2 * H, BOT_Y] },
+    },
+  };
+}
+
+export default function Hourglass({ levels, bottleneck, hint, balanced = false }) {
+  const geo = balanced ? cylinderGeo() : hourglassGeo();
+
+  const placement = balanced
+    ? { top: ORDER[0], mid: ORDER[1], bottom: ORDER[2] }
+    : (() => {
+        const rest = ORDER.filter((a) => a !== bottleneck.aspect);
+        return { top: rest[0], neck: bottleneck.aspect, bottom: rest[1] };
+      })();
+
+  const slots = geo.order.map((slot) => {
     const aspect = placement[slot];
-    const zone = SLOTS[slot].zone;
+    const zone = geo.slots[slot].zone;
     return {
-      slot, aspect, zone, yc: SLOTS[slot].yc,
+      slot, aspect, zone, yc: geo.slots[slot].yc,
       level: levels[aspect],
       surf: surfaceY(zone, levels[aspect]),
       isBottleneck: slot === "neck",
@@ -52,8 +88,8 @@ export default function Hourglass({ levels, bottleneck, hint }) {
     };
   });
 
-  const bn = ASPECTS[bottleneck.aspect];
-  const bnText = `Узкое место: ${bn.label}`;
+  const bn = balanced ? null : ASPECTS[bottleneck.aspect];
+  const bnText = bn ? `Узкое место: ${bn.label}` : "";
   const pillW = bnText.length * 8.6 + 30;
   const cleanHint = (hint || "").replace(/^Узкое место:[^.]*\.\s*/, "");
 
@@ -74,10 +110,10 @@ export default function Hourglass({ levels, bottleneck, hint }) {
           ))}
         </div>
 
-        <svg className="hg-svg" viewBox="0 -52 320 484" role="img"
-             aria-label="Песочные часы состояния бизнеса">
+        <svg className="hg-svg" viewBox={`0 ${VB_TOP} 320 ${VB_H}`} role="img"
+             aria-label={balanced ? "Цилиндр состояния бизнеса" : "Песочные часы состояния бизнеса"}>
           <defs>
-            <clipPath id="glass"><path d={SIL} /></clipPath>
+            <clipPath id="glass"><path d={geo.SIL} /></clipPath>
             <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
               <feGaussianBlur stdDeviation="3" result="b" />
               <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
@@ -101,60 +137,63 @@ export default function Hourglass({ levels, bottleneck, hint }) {
             ))}
           </defs>
 
-          <path d={SIL} fill="none" stroke="#8fd3ff" strokeWidth="3" opacity="0.5" filter="url(#glowBig)" />
-          <path d={SIL} fill="url(#glassBody)" />
+          <path d={geo.SIL} fill="none" stroke="#8fd3ff" strokeWidth="3" opacity="0.5" filter="url(#glowBig)" />
+          <path d={geo.SIL} fill="url(#glassBody)" />
 
           <g clipPath="url(#glass)">
             {slots.map((s) => (
               <rect key={s.slot} x="58" y={s.surf} width="204" height={s.zone[1] - s.surf}
                     fill={`url(#liq-${s.aspect})`} />
             ))}
-            <polygon points="76,54 150,206 160,206 92,54" fill="url(#shine)" opacity="0.5" />
-            <polygon points="150,220 76,384 96,384 160,220" fill="url(#shine)" opacity="0.4" />
+            {balanced ? (
+              <rect x={CX - CYL_RX + 10} y={TOP_Y} width="16" height={BOT_Y - TOP_Y}
+                    fill="url(#shine)" opacity="0.35" />
+            ) : (
+              <>
+                <polygon points="76,54 150,206 160,206 92,54" fill="url(#shine)" opacity="0.5" />
+                <polygon points="150,220 76,384 96,384 160,220" fill="url(#shine)" opacity="0.4" />
+              </>
+            )}
           </g>
 
           {slots.map((s) => {
-            const rx = Math.max(hwAtY(s.surf), 6);
+            const rx = Math.max(geo.hw(s.surf), 6);
             const ry = rx * 0.17 + 1.5;
             return (
               <g key={s.slot}>
                 <ellipse cx={CX} cy={s.surf} rx={rx} ry={ry} fill={s.light} opacity="0.5" />
                 <ellipse cx={CX} cy={s.surf} rx={rx} ry={ry} fill="none"
                          stroke={s.light} strokeWidth="2" filter="url(#glow)" />
-                <line x1="6" y1={s.yc} x2={CX - hwAtY(s.yc) - 6} y2={s.yc} stroke={s.base}
+                <line x1="6" y1={s.yc} x2={CX - geo.hw(s.yc) - 6} y2={s.yc} stroke={s.base}
                       strokeWidth="1" strokeDasharray="2 4" opacity="0.4" />
-                <line x1={CX + hwAtY(s.yc) + 6} y1={s.yc} x2="314" y2={s.yc} stroke={s.base}
+                <line x1={CX + geo.hw(s.yc) + 6} y1={s.yc} x2="314" y2={s.yc} stroke={s.base}
                       strokeWidth="1" strokeDasharray="2 4" opacity="0.4" />
               </g>
             );
           })}
 
-          <ellipse cx={CX} cy={TOP_Y} rx={TOP_RX} ry={RIM_RY} fill="#0a1626" opacity="0.5" />
-          <ellipse cx={CX} cy={TOP_Y} rx={TOP_RX} ry={RIM_RY} fill="none"
+          <ellipse cx={CX} cy={TOP_Y} rx={geo.topRx} ry={RIM_RY} fill="#0a1626" opacity="0.5" />
+          <ellipse cx={CX} cy={TOP_Y} rx={geo.topRx} ry={RIM_RY} fill="none"
                    stroke="#a9dcff" strokeWidth="2.4" filter="url(#glow)" />
-          <ellipse cx={CX} cy={BOT_Y} rx={BOT_RX} ry={RIM_RY} fill="none"
+          <ellipse cx={CX} cy={BOT_Y} rx={geo.botRx} ry={RIM_RY} fill="none"
                    stroke="#a9dcff" strokeWidth="2.4" filter="url(#glow)" />
-          <ellipse cx={CX} cy={NECK_Y} rx={NECK_HW} ry="4" fill="none"
-                   stroke="#a9dcff" strokeWidth="1.6" opacity="0.8" />
+          {!balanced && (
+            <ellipse cx={CX} cy={NECK_Y} rx={NECK_HW} ry="4" fill="none"
+                     stroke="#a9dcff" strokeWidth="1.6" opacity="0.8" />
+          )}
 
-          <path d={SIL} fill="none" stroke="#cfeaff" strokeWidth="1.5" opacity="0.55" />
+          <path d={geo.SIL} fill="none" stroke="#cfeaff" strokeWidth="1.5" opacity="0.55" />
 
-          <g stroke="#e7b24c" fill="none" strokeLinecap="round">
-            <path d="M95,-14 Q160,-46 225,-14" strokeWidth="1.4" strokeDasharray="1.5 5" opacity="0.85" />
-            <circle cx="90" cy="-14" r="2.2" fill="#e7b24c" stroke="none" />
-            <circle cx="230" cy="-14" r="2.2" fill="#e7b24c" stroke="none" />
-            <circle cx={CX} cy="-36" r="5.5" strokeWidth="1.6" />
-            <path d="M150,-22 Q160,-32 170,-22" strokeWidth="1.6" />
-          </g>
-          <text x={CX} y="-4" textAnchor="middle" fill="#e7b24c" fontSize="12.5"
-                fontWeight="700" letterSpacing="2">СОБСТВЕННИК</text>
-
-          <g filter="url(#glow)">
-            <rect x={CX - pillW / 2} y={NECK_Y - 16} width={pillW} height="32" rx="16"
-                  fill="rgba(6,11,22,0.92)" stroke={bn.base} strokeWidth="1.6" />
-          </g>
-          <text x={CX} y={NECK_Y + 5} textAnchor="middle" fill={bn.light}
-                fontSize="13.5" fontWeight="700">{bnText}</text>
+          {!balanced && (
+            <>
+              <g filter="url(#glow)">
+                <rect x={CX - pillW / 2} y={NECK_Y - 16} width={pillW} height="32" rx="16"
+                      fill="rgba(6,11,22,0.92)" stroke={bn.base} strokeWidth="1.6" />
+              </g>
+              <text x={CX} y={NECK_Y + 5} textAnchor="middle" fill={bn.light}
+                    fontSize="13.5" fontWeight="700">{bnText}</text>
+            </>
+          )}
         </svg>
 
         <div className="hg-col hg-col-right">

@@ -23,7 +23,7 @@ export default function Dashboard() {
       <Shell logout={logout}>
         <div className="panel dash-empty">
           <h2>Пройдите короткий тест</h2>
-          <p className="muted">9 вопросов, около трёх минут. По ответам мы определим ваше узкое место
+          <p className="muted">3 вопроса, меньше минуты. По ответам мы определим ваше узкое место
             и покажем персональную траекторию.</p>
           <button className="btn btn-primary" onClick={() => navigate("/quiz")}>Пройти тест</button>
         </div>
@@ -45,6 +45,7 @@ export default function Dashboard() {
             levels={levels}
             bottleneck={{ aspect: data.bottleneck_aspect, level: data.bottleneck_level }}
             hint={data.hint}
+            balanced={data.balanced}
           />
           <div className="dash-retake">
             <button className="btn" onClick={() => navigate("/quiz")}>Пройти тест заново</button>
@@ -63,6 +64,11 @@ export default function Dashboard() {
                  href={card.getcourse_url || undefined}
                  target={card.getcourse_url ? "_blank" : undefined}
                  rel="noreferrer">
+                {card.cover && (
+                  <span className="dash-card-cover">
+                    <img src={card.cover} alt="" loading="lazy" />
+                  </span>
+                )}
                 <span className="dash-card-num">{card.position}</span>
                 <span className="dash-card-title">{card.title}</span>
                 <span className="dash-card-cta">

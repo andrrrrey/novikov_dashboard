@@ -35,7 +35,7 @@ class UserOut(BaseModel):
 
 # --- Квиз ---
 class QuizOption(BaseModel):
-    level: int
+    index: int   # порядковый номер варианта (1-based) — его и отправляет фронт
     text: str
 
 
@@ -47,7 +47,7 @@ class QuizQuestionOut(BaseModel):
 
 
 class QuizSubmit(BaseModel):
-    answers: dict[str, int]   # {"M1": 1, "M2": 2, ...} значение = уровень 1..3
+    answers: dict[str, int]   # {"M": 3, "S": 1, "Mg": 2} значение = индекс варианта
 
 
 # --- Дашборд ---
@@ -65,6 +65,7 @@ class DashboardOut(BaseModel):
     management_level: Optional[int] = None
     bottleneck_aspect: Optional[str] = None
     bottleneck_level: Optional[int] = None
+    balanced: bool = False   # все три уровня равны → рисуем цилиндр, а не часы
     hint: Optional[str] = None
     cards: list[CardOut] = []
     # Плейсхолдер под будущий прогресс из GetCourse (сейчас не заполняется).
@@ -76,3 +77,35 @@ class AdminStats(BaseModel):
     total_users: int
     quiz_completed: int
     quiz_pending: int
+
+
+# --- Контент траектории (админка) ---
+class CardAdminOut(BaseModel):
+    id: int
+    aspect: str
+    level: int
+    position: int
+    title: str
+    getcourse_url: Optional[str] = None
+    cover: Optional[str] = None
+
+
+class CardUpdate(BaseModel):
+    title: Optional[str] = None
+    getcourse_url: Optional[str] = None
+    cover: Optional[str] = None
+
+
+class HintOut(BaseModel):
+    id: int
+    aspect: str
+    level: int
+    hint_text: str
+
+
+class HintUpdate(BaseModel):
+    hint_text: str
+
+
+class UploadOut(BaseModel):
+    url: str

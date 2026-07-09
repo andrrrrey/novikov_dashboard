@@ -11,6 +11,9 @@ __pycache__/
 venv/
 .venv/
 
+# Загруженные обложки карточек
+club-backend/uploads/
+
 # Логи и системные файлы
 *.log
 .DS_Store

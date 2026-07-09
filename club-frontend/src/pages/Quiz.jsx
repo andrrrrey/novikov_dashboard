@@ -26,8 +26,8 @@ export default function Quiz() {
   const isLast = step === total - 1;
   const answeredAll = questions.every((item) => answers[item.code]);
 
-  function choose(level) {
-    setAnswers((prev) => ({ ...prev, [q.code]: level }));
+  function choose(index) {
+    setAnswers((prev) => ({ ...prev, [q.code]: index }));
   }
 
   async function next() {
@@ -61,9 +61,9 @@ export default function Quiz() {
 
         <div className="quiz-options">
           {q.options.map((opt) => (
-            <button key={opt.level}
-                    className={`quiz-option ${selected === opt.level ? "is-selected" : ""}`}
-                    onClick={() => choose(opt.level)}>
+            <button key={opt.index}
+                    className={`quiz-option ${selected === opt.index ? "is-selected" : ""}`}
+                    onClick={() => choose(opt.index)}>
               <span className="quiz-radio" />
               <span>{opt.text}</span>
             </button>
