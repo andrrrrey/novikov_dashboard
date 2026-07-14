@@ -83,9 +83,10 @@ def test_full_resident_flow(client):
     assert data["hint"].startswith("Узкое место: Маркетинг")
     assert len(data["cards"]) == 3
     assert data["cards"][0]["title"] == "Привлечение клиентов. Вводный урок"
-    # GetCourse не настроен в тесте → общий уровень отсутствует, плашка с дефолтным заголовком
-    assert data["overall_level"] is None
-    assert data["total_lessons"] is None
+    # Показатели прогресса присутствуют; без назначенных групп — нули. Плашка с дефолтом.
+    assert data["experience"]["level"] == 1 + 2 + 1   # M=1,S=2,Mg=1 из этого теста
+    assert data["knowledge"] == {"done": 0, "total": 0}
+    assert data["influence"] == 0
     assert data["promo_title"] == "Повышайте свой уровень"
 
 

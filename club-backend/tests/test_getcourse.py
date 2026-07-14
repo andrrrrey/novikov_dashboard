@@ -1,6 +1,7 @@
 """
-Тесты интеграции GetCourse: расчёт уровня 1–10, парсинг имён групп,
-парсинг экспорта и админ-эндпоинты (плашка + настройки GC).
+Тесты интеграции GetCourse: парсинг имён групп, парсинг ответа/экспорта,
+синхронизация и админ-эндпоинты (плашка + настройки GC).
+Расчёт показателей прогресса — в test_progress.py.
 """
 
 import asyncio
@@ -16,8 +17,8 @@ from app.getcourse import (
     GetCourseClient, GetCourseError, parse_lesson_number, sync_getcourse,
     _extract_email, _is_busy_error,
 )
-from app.models import GcGroup, LessonView, User
-from app.settings import compute_overall_level, set_setting
+from app.models import GcAssignment, GcGroup, LessonView, User
+from app.settings import set_setting
 
 # engine/app/client — из conftest.py. Прямой доступ к БД через database.engine.
 test_engine = database.engine
@@ -25,6 +26,8 @@ test_engine = database.engine
 
 def _clear(session):
     for row in session.exec(select(LessonView)).all():
+        session.delete(row)
+    for row in session.exec(select(GcAssignment)).all():
         session.delete(row)
     for row in session.exec(select(GcGroup)).all():
         session.delete(row)
@@ -109,12 +112,14 @@ def test_is_busy_error():
     assert not _is_busy_error(GetCourseError("Неавторизованное API-обращение"))
 
 
-def test_sync_recovers_from_busy(monkeypatch):
-    # Первый старт экспорта отклоняется («уже запущен»), второй — успешен: синк должен дождаться.
+def test_sync_stores_all_groups_and_recovers_from_busy(monkeypatch):
+    # Синк сохраняет ВСЕ группы (в т.ч. не-урочные, lesson_number=0) и тянет состав только
+    # назначенных групп. Первый старт экспорта отклоняется («уже запущен»), второй успешен.
     with Session(test_engine) as s:
         _clear(s)
         s.add(User(email="busyrez@x.ru", password_hash="x"))
-        s.commit()
+        # группа-урок 4883599 назначена в «Знания» → её состав тянем; «Траектория» — нет
+        s.add(GcAssignment(track="know", gc_group_id=4883599))
         set_setting(s, "gc_account", "novikovclub")
         set_setting(s, "gc_api_key", "K")
         s.commit()
@@ -123,7 +128,7 @@ def test_sync_recovers_from_busy(monkeypatch):
 
     def handler(request):
         u = str(request.url)
-        if "/users" in u:
+        if "/groups/4883599/users" in u:
             calls["start"] += 1
             if calls["start"] == 1:
                 return httpx.Response(200, json={"success": False, "error": True,
@@ -133,6 +138,7 @@ def test_sync_recovers_from_busy(monkeypatch):
             return httpx.Response(200, json={"success": True, "info": {
                 "status": "finished", "fields": ["Email"], "items": [["busyrez@x.ru"]]}})
         return httpx.Response(200, json={"success": True, "info": [
+            {"id": 4848962, "name": "Траектория 1", "last_added_at": "2026-06-22 11:44:29"},
             {"id": 4883599, "name": "Урок 01 просмотрен", "last_added_at": "2026-07-14 12:16:21"}]})
 
     import functools
@@ -147,56 +153,16 @@ def test_sync_recovers_from_busy(monkeypatch):
     assert calls["start"] == 2   # первый занят, второй успешен
 
     with Session(test_engine) as s:
-        assert compute_overall_level(s, "busyrez@x.ru") == (1, 1, 10)
+        # сохранены ОБЕ группы; у «Траектории» lesson_number=0
+        groups = {g.gc_id: g.lesson_number for g in s.exec(select(GcGroup)).all()}
+        assert groups == {4848962: 0, 4883599: 1}
+        # состав тянулся только для назначенной группы
+        views = s.exec(select(LessonView).where(LessonView.email == "busyrez@x.ru")).all()
+        assert [v.gc_group_id for v in views] == [4883599]
         _clear(s)
-        # вернуть настройки к «пусто», чтобы не влиять на другие тесты
         set_setting(s, "gc_account", "")
         set_setting(s, "gc_api_key", "")
         s.commit()
-
-
-# --------------------------------------------------------- расчёт уровня 1..10
-def _seed_progress(session, total_groups, viewed_by_email):
-    for i in range(1, total_groups + 1):
-        session.add(GcGroup(gc_id=1000 + i, name=f"Урок {i:02d} просмотрен",
-                            lesson_number=i, counts=True))
-    session.commit()
-    gc_ids = [g.gc_id for g in session.exec(select(GcGroup)).all()]
-    for email, count in viewed_by_email.items():
-        for gid in gc_ids[:count]:
-            session.add(LessonView(email=email, gc_group_id=gid))
-    session.commit()
-
-
-def test_compute_overall_level():
-    with Session(test_engine) as session:
-        _clear(session)
-        _seed_progress(session, total_groups=10, viewed_by_email={
-            "full@x.ru": 10,   # всё → 10
-            "mid@x.ru": 3,     # ceil(3/10*10)=3
-            "one@x.ru": 1,     # ceil(0.1*10)=1
-            "none@x.ru": 0,    # 0 просмотров → 0
-        })
-
-        assert compute_overall_level(session, "full@x.ru") == (10, 10, 10)
-        assert compute_overall_level(session, "mid@x.ru") == (3, 10, 3)
-        assert compute_overall_level(session, "one@x.ru") == (1, 10, 1)
-        assert compute_overall_level(session, "NONE@x.ru")[2] == 0   # case-insensitive
-        assert compute_overall_level(session, "missing@x.ru") == (0, 10, 0)
-
-
-def test_compute_level_ceil_rounding():
-    with Session(test_engine) as session:
-        _clear(session)
-        # 3 сегмента, 1 просмотрен → ceil(1/3*10)=ceil(3.33)=4
-        _seed_progress(session, total_groups=3, viewed_by_email={"a@x.ru": 1})
-        assert compute_overall_level(session, "a@x.ru") == (1, 3, 4)
-
-
-def test_level_zero_when_no_groups():
-    with Session(test_engine) as session:
-        _clear(session)
-        assert compute_overall_level(session, "any@x.ru") == (0, 0, 0)
 
 
 # ------------------------------------------------------------- админ-эндпоинты

@@ -86,3 +86,31 @@ class LessonView(SQLModel, table=True):
     gc_group_id: int = Field(index=True)          # GcGroup.gc_id
     user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
     first_seen: datetime = Field(default_factory=_now)
+
+
+class GcAssignment(SQLModel, table=True):
+    """
+    Привязка группы GetCourse к шкале прогресса.
+    track="exp"  → задаёт category (marketing|sales|management) и level (1..N).
+    track="know" → «Знания» (плоская шкала), category/level = None.
+    """
+    __table_args__ = (UniqueConstraint("track", "category", "level", "gc_group_id"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    track: str = Field(index=True)                     # "exp" | "know"
+    category: Optional[str] = Field(default=None, index=True)   # marketing|sales|management
+    level: Optional[int] = Field(default=None, index=True)      # 1..N (для exp)
+    gc_group_id: int = Field(index=True)              # GcGroup.gc_id
+
+
+class UserStats(SQLModel, table=True):
+    """
+    Ручные и вычисляемые показатели резидента.
+    influence — «Влияние», очки, которые ставит админ.
+    exp_level / exp_level_since — уровень «Опыт» (сумма уровней категорий) и момент его достижения,
+    нужны для «дней на уровне».
+    """
+    user_id: int = Field(foreign_key="user.id", primary_key=True)
+    influence: int = Field(default=0)
+    exp_level: int = Field(default=0)
+    exp_level_since: datetime = Field(default_factory=_now)
