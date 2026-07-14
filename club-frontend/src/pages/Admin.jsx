@@ -85,9 +85,9 @@ export default function Admin() {
 
         <div className="panel admin-block">
           <h2 className="admin-h2">Резиденты</h2>
-          <div className="admin-table">
+          <div className="admin-table admin-table-users">
             <div className="admin-row admin-row-head">
-              <span>Email</span><span>Тест</span><span>Роль</span><span></span>
+              <span>Email</span><span>Тест</span><span>Роль</span><span>Влияние</span><span></span>
             </div>
             {users.map((u) => (
               <div className="admin-row" key={u.id}>
@@ -98,6 +98,11 @@ export default function Admin() {
                     : <em className="tag tag-wait">ожидает</em>}
                 </span>
                 <span className="muted">{u.role === "admin" ? "админ" : "резидент"}</span>
+                <span>
+                  {u.role === "admin"
+                    ? <span className="muted">—</span>
+                    : <InfluenceEditor user={u} onSaved={reload} onError={setError} />}
+                </span>
                 <span className="admin-actions">
                   <button className="btn admin-mini" onClick={() => resetPassword(u)}>Пароль</button>
                   {u.role !== "admin" && (
@@ -111,6 +116,7 @@ export default function Admin() {
           </div>
         </div>
 
+        <ProgressConfigBlock onError={setError} />
         <PromoBlock onError={setError} />
         <GetCourseBlock onError={setError} />
         <CardsBlock cards={cards} onError={setError} />
@@ -407,19 +413,12 @@ function GetCourseBlock({ onError }) {
     } catch (err) { onError(err.message); } finally { setSyncing(false); }
   }
 
-  async function toggleGroup(g) {
-    try {
-      await api.updateGcGroup(g.id, !g.counts);
-      await load();
-    } catch (err) { onError(err.message); }
-  }
-
   return (
     <div className="panel admin-block">
-      <h2 className="admin-h2">GetCourse — прогресс и уровень</h2>
+      <h2 className="admin-h2">GetCourse — подключение</h2>
       <p className="muted admin-note">
-        Сервер сам опрашивает GetCourse по расписанию, читает составы групп «Урок NN просмотрен»
-        и считает уровень резидента (1–10). Ключ создаётся в GetCourse: раздел «Настройки → API».
+        Сервер по расписанию сам опрашивает GetCourse и обновляет составы групп. Какие группы
+        входят в «Опыт» и «Знания» — настраивается выше. Ключ создаётся в GetCourse: «Настройки → API».
       </p>
 
       <div className="admin-gc-form">
@@ -453,20 +452,154 @@ function GetCourseBlock({ onError }) {
       <div className="admin-gc-status muted">
         <div>Последняя синхронизация: {gc.last_sync ? new Date(gc.last_sync).toLocaleString() : "—"}</div>
         <div>Статус: {gc.last_status || "—"}</div>
-        <div>Засчитываемых уроков (N для шкалы): <strong>{gc.total_lessons}</strong></div>
+        <div>Групп получено из GetCourse: <strong>{gc.groups.length}</strong>; задействовано в шкалах: <strong>{gc.total_lessons}</strong></div>
       </div>
+    </div>
+  );
+}
 
-      {gc.groups.length > 0 && (
-        <div className="admin-gc-groups">
-          <h3 className="admin-group-h">Найденные группы-уроки</h3>
-          {gc.groups.map((g) => (
-            <label className="admin-gc-group" key={g.id}>
-              <input type="checkbox" checked={g.counts} onChange={() => toggleGroup(g)} />
-              <span>№{g.lesson_number} · {g.name}</span>
+// --- Влияние: очки, которые админ ставит резиденту ---
+function InfluenceEditor({ user, onSaved, onError }) {
+  const [val, setVal] = useState(String(user.influence ?? 0));
+  const [saving, setSaving] = useState(false);
+  const dirty = String(user.influence ?? 0) !== val.trim();
+
+  async function save() {
+    setSaving(true);
+    try {
+      await api.updateUser(user.id, { influence: parseInt(val, 10) || 0 });
+      await onSaved();
+    } catch (err) { onError(err.message); } finally { setSaving(false); }
+  }
+
+  return (
+    <span className="admin-influence">
+      <input className="input admin-influence-input" type="number" value={val}
+             onChange={(e) => setVal(e.target.value)} />
+      <button className="btn admin-mini" onClick={save} disabled={saving || !dirty}>
+        {saving ? "…" : "✓"}
+      </button>
+    </span>
+  );
+}
+
+// --- Настройка шкал: какие группы GetCourse входят в уровни категорий и в «Знания» ---
+const PROGRESS_CATS = [
+  ["management", "Менеджмент"], ["sales", "Продажи"], ["marketing", "Маркетинг"],
+];
+
+function ProgressConfigBlock({ onError }) {
+  const [cfg, setCfg] = useState(null);   // {groups, exp:{cat:{level:Set}}, know:Set}
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    api.getProgressConfig().then((c) => setCfg(normalize(c))).catch((e) => onError(e.message));
+  }, []);
+
+  if (!cfg) return null;
+
+  function normalize(c) {
+    const exp = {};
+    for (const [cat] of PROGRESS_CATS) {
+      exp[cat] = {};
+      const levels = c.exp?.[cat] || {};
+      for (const lvl of Object.keys(levels)) exp[cat][Number(lvl)] = new Set(levels[lvl]);
+      if (Object.keys(exp[cat]).length === 0) exp[cat][1] = new Set();  // хотя бы ур.1
+    }
+    return { groups: c.groups, exp, know: new Set(c.know || []) };
+  }
+
+  function toggleExp(cat, level, gcId) {
+    setCfg((prev) => {
+      const set = new Set(prev.exp[cat][level]);
+      set.has(gcId) ? set.delete(gcId) : set.add(gcId);
+      return { ...prev, exp: { ...prev.exp, [cat]: { ...prev.exp[cat], [level]: set } } };
+    });
+    setSaved(false);
+  }
+
+  function addLevel(cat) {
+    setCfg((prev) => {
+      const levels = prev.exp[cat];
+      const next = Math.max(0, ...Object.keys(levels).map(Number)) + 1;
+      return { ...prev, exp: { ...prev.exp, [cat]: { ...levels, [next]: new Set() } } };
+    });
+  }
+
+  function toggleKnow(gcId) {
+    setCfg((prev) => {
+      const set = new Set(prev.know);
+      set.has(gcId) ? set.delete(gcId) : set.add(gcId);
+      return { ...prev, know: set };
+    });
+    setSaved(false);
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      const exp = {};
+      for (const [cat] of PROGRESS_CATS) {
+        exp[cat] = {};
+        for (const lvl of Object.keys(cfg.exp[cat])) exp[cat][lvl] = [...cfg.exp[cat][lvl]];
+      }
+      await api.updateProgressConfig({ exp, know: [...cfg.know] });
+      setSaved(true);
+    } catch (err) { onError(err.message); } finally { setSaving(false); }
+  }
+
+  return (
+    <div className="panel admin-block">
+      <h2 className="admin-h2">Опыт и Знания: состав групп</h2>
+      <p className="muted admin-note">
+        Отметьте, какие группы GetCourse входят в каждый уровень категории («Опыт») и в «Знания».
+        Когда резидент проходит все группы уровня — уровень растёт, прогресс-бар обнуляется.
+      </p>
+
+      {cfg.groups.length === 0 && (
+        <p className="muted">Групп пока нет — сначала подключите GetCourse и дождитесь синхронизации.</p>
+      )}
+
+      {PROGRESS_CATS.map(([cat, label]) => (
+        <div className="admin-group" key={cat}>
+          <h3 className="admin-group-h">{label}</h3>
+          {Object.keys(cfg.exp[cat]).map(Number).sort((a, b) => a - b).map((level) => (
+            <div className="pc-level" key={level}>
+              <div className="pc-level-title">Уровень {level}</div>
+              <div className="pc-groups">
+                {cfg.groups.map((g) => (
+                  <label className="pc-chip" key={g.gc_id}>
+                    <input type="checkbox" checked={cfg.exp[cat][level].has(g.gc_id)}
+                           onChange={() => toggleExp(cat, level, g.gc_id)} />
+                    <span>{g.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+          <button className="btn admin-mini" onClick={() => addLevel(cat)}>+ уровень</button>
+        </div>
+      ))}
+
+      <div className="admin-group">
+        <h3 className="admin-group-h">Знания</h3>
+        <div className="pc-groups">
+          {cfg.groups.map((g) => (
+            <label className="pc-chip" key={g.gc_id}>
+              <input type="checkbox" checked={cfg.know.has(g.gc_id)}
+                     onChange={() => toggleKnow(g.gc_id)} />
+              <span>{g.name}</span>
             </label>
           ))}
         </div>
-      )}
+      </div>
+
+      <div className="admin-card-actions">
+        <button className="btn btn-primary admin-mini" onClick={save} disabled={saving}>
+          {saving ? "Сохраняем…" : saved ? "Сохранено ✓" : "Сохранить"}
+        </button>
+      </div>
     </div>
   );
 }

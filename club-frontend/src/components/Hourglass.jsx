@@ -66,10 +66,8 @@ function cylinderGeo() {
   };
 }
 
-export default function Hourglass({ levels, bottleneck, hint, balanced = false, overallLevel = null }) {
+export default function Hourglass({ levels, bottleneck, hint, balanced = false }) {
   const geo = balanced ? cylinderGeo() : hourglassGeo();
-  // Общий уровень 1–10 из GetCourse. null → GC не настроен, оставляем заглушку.
-  const hasLevel = typeof overallLevel === "number";
 
   const placement = balanced
     ? { top: ORDER[0], mid: ORDER[1], bottom: ORDER[2] }
@@ -99,9 +97,6 @@ export default function Hourglass({ levels, bottleneck, hint, balanced = false, 
     <div className="hg">
       <div className="hg-head">
         <h1 className="hg-title">Состояние бизнеса</h1>
-        {hasLevel
-          ? <span className="hg-badge" title="Ваш уровень по прогрессу в GetCourse">Уровень {overallLevel} / 10</span>
-          : <span className="hg-badge" title="Подключается вместе с GetCourse">Прогресс · скоро</span>}
       </div>
 
       <div className="hg-stage">
@@ -211,28 +206,6 @@ export default function Hourglass({ levels, bottleneck, hint, balanced = false, 
           ))}
         </div>
       </div>
-
-      <div className="hg-scale" aria-hidden="true">
-        {Array.from({ length: 10 }, (_, i) => (
-          <span key={i} className={hasLevel && i + 1 <= overallLevel ? "is-active" : ""}>{i + 1}</span>
-        ))}
-      </div>
-      {hasLevel ? (
-        <div className="hg-slider" title={`Ваш уровень: ${overallLevel} из 10`}>
-          <div className="hg-slider-track">
-            <div className="hg-slider-fill" style={{ width: `${(overallLevel / 10) * 100}%` }} />
-            <div className="hg-slider-thumb" style={{ left: `${(overallLevel / 10) * 100}%` }} />
-          </div>
-          <span className="hg-slider-note">
-            Ваш уровень: <strong>{overallLevel}</strong> из 10 · уроков просмотрено по данным GetCourse
-          </span>
-        </div>
-      ) : (
-        <div className="hg-slider" title="Появится после подключения GetCourse">
-          <div className="hg-slider-track"><div className="hg-slider-thumb" /></div>
-          <span className="hg-slider-note">Общий уровень появится после подключения GetCourse</span>
-        </div>
-      )}
 
       <div className="hg-bottleneck" style={{ borderColor: "rgba(108, 222, 82, 0.35)" }}>
         <div className="hg-bulb" style={{ color: "var(--green)" }}>

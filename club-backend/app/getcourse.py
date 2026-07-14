@@ -20,7 +20,8 @@ import httpx
 from sqlmodel import Session, select
 
 from app.config import GETCOURSE_POLL_HOURS_DEFAULT
-from app.models import GcGroup, LessonView, User
+from app.models import GcAssignment, GcGroup, LessonView, User
+from app.progress import compute_user_progress
 from app.settings import get_setting, set_setting
 
 # Имя группы-сегмента: «Урок 01 просмотрен», «Урок 12 — просмотрен» и т.п.
@@ -195,20 +196,21 @@ async def sync_getcourse(session_factory: Callable[[], Session]) -> str:
             async with httpx.AsyncClient() as http:
                 client = GetCourseClient(account, api_key, http)
 
-                # 1) список групп → upsert GcGroup для «Урок NN просмотрен»
+                # 1) список групп → upsert всех GcGroup (пул для настройки шкал в админке)
                 groups = await client.list_groups()
                 requests_used += 1
                 with session_factory() as session:
-                    matched = _upsert_groups(session, groups)
+                    total_groups = _upsert_groups(session, groups)
                     session.commit()
-                    counting = session.exec(
-                        select(GcGroup).where(GcGroup.counts == True)  # noqa: E712
-                    ).all()
-                    counting = sorted(counting, key=lambda g: g.lesson_number)
-                    gc_ids = [g.gc_id for g in counting]
+                    # состав тянем только для групп, задействованных в шкалах (exp/know)
+                    assigned = {a.gc_group_id for a in session.exec(select(GcAssignment)).all()}
+                    gc_ids = sorted(assigned)
 
                 if not gc_ids:
-                    status = f"группы «Урок NN просмотрен» не найдены (всего групп: {len(groups)})"
+                    status = (
+                        f"группы получены ({total_groups}), но ни одна не назначена в шкалы — "
+                        f"распределите группы в разделе «Опыт и Знания»"
+                    )
                     _write_status(session_factory, status)
                     return status
 
@@ -268,7 +270,10 @@ async def sync_getcourse(session_factory: Callable[[], Session]) -> str:
                     set_setting(session, "gc_cursor", str(idx))
                     session.commit()
 
-                status = f"ок: групп-уроков {n}, обновлено за цикл {processed}, запросов {requests_used}"
+                # пересчёт уровня «Опыт» и «дней на уровне» для всех резидентов
+                _refresh_all_exp_levels(session_factory)
+
+                status = f"ок: назначенных групп {n}, обновлено за цикл {processed}, запросов {requests_used}"
                 if processed < n and last_error:
                     status += f"; не все группы: {last_error}"
                 _write_status(session_factory, status)
@@ -288,17 +293,15 @@ async def sync_getcourse(session_factory: Callable[[], Session]) -> str:
 
 
 def _upsert_groups(session: Session, groups: list[dict]) -> int:
-    """Создать/обновить GcGroup для групп-уроков. Вернуть число распознанных."""
-    matched = 0
+    """Создать/обновить все GcGroup (пул для настройки шкал). Вернуть их число."""
+    count = 0
     for g in groups:
         gc_id = g.get("id") or g.get("group_id")
         name = g.get("name") or g.get("title") or ""
         if gc_id is None:
             continue
-        lesson_no = parse_lesson_number(name)
-        if lesson_no is None:
-            continue
-        matched += 1
+        lesson_no = parse_lesson_number(name) or 0   # не-урочные группы → 0
+        count += 1
         existing = session.exec(
             select(GcGroup).where(GcGroup.gc_id == int(gc_id))
         ).first()
@@ -310,7 +313,7 @@ def _upsert_groups(session: Session, groups: list[dict]) -> int:
             existing.name = name
             existing.lesson_number = lesson_no
             session.add(existing)
-    return matched
+    return count
 
 
 def _email_to_uid(session: Session) -> dict[str, int]:
@@ -319,6 +322,15 @@ def _email_to_uid(session: Session) -> dict[str, int]:
         for u in session.exec(select(User)).all()
         if u.id is not None
     }
+
+
+def _refresh_all_exp_levels(session_factory) -> None:
+    """После синхронизации пересчитать уровень «Опыт» (для «дней на уровне») всем резидентам."""
+    with session_factory() as session:
+        users = session.exec(select(User).where(User.role == "user")).all()
+        for user in users:
+            # compute_user_progress внутри вызывает refresh_exp_level (обновит exp_level_since)
+            compute_user_progress(session, user)
 
 
 def _write_status(session_factory, status: str, touch_time: bool = True) -> None:

@@ -118,6 +118,47 @@
 .dash-promo-title { font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
 .dash-promo-cta { font-size: 13px; color: var(--text-dim); font-weight: 600; white-space: nowrap; }
 
+/* --- Дашборд: панель показателей (Опыт/категории/Знания/Влияние) --- */
+.stats { display: flex; flex-direction: column; gap: 20px; }
+.stat-exp-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+.stat-exp-title { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+.stat-exp-level { font-size: 14px; font-weight: 700; color: var(--green); }
+.stat-exp-days { font-size: 12px; margin-top: 6px; }
+.stat-cats { display: flex; flex-direction: column; gap: 14px; }
+.stat-row-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; }
+.stat-row-name { font-size: 15px; font-weight: 700; }
+.stat-row-lvl { font-size: 13px; }
+.stat-influence {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: rgba(255,255,255,0.02);
+}
+.stat-influence-label { font-size: 15px; font-weight: 700; }
+.stat-influence-val { font-size: 22px; font-weight: 800; color: var(--gold); font-variant-numeric: tabular-nums; }
+
+.bar { display: flex; align-items: center; gap: 10px; }
+.bar-track { position: relative; flex: 1; height: 8px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
+.bar-fill { position: absolute; left: 0; top: 0; height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, rgba(108,222,82,0.5), var(--green)); transition: width 0.3s ease; }
+.bar-num { font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums; min-width: 42px; text-align: right; }
+.bar-big .bar-track { height: 14px; }
+
+/* --- Админка: показатель «Влияние» в таблице --- */
+.admin-table-users .admin-row { grid-template-columns: 2fr 0.9fr 0.9fr 1.3fr auto; }
+.admin-influence { display: inline-flex; align-items: center; gap: 6px; }
+.admin-influence-input { width: 72px; height: 32px; padding: 0 8px; }
+
+/* --- Админка: матрица настройки шкал прогресса --- */
+.pc-level { margin: 10px 0 14px; }
+.pc-level-title { font-size: 13px; font-weight: 700; color: var(--text-dim); margin-bottom: 6px; }
+.pc-groups { display: flex; flex-wrap: wrap; gap: 8px; }
+.pc-chip {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  padding: 6px 10px; border: 1px solid var(--border); border-radius: 999px;
+  font-size: 13px; background: rgba(255,255,255,0.02);
+}
+.pc-chip:hover { border-color: var(--border-strong); }
+
 /* --- Админка: GetCourse --- */
 .admin-gc-form { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; }
 .admin-gc-field { display: flex; flex-direction: column; gap: 5px; flex: 1 1 240px; font-size: 13px; }

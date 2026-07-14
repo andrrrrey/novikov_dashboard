@@ -23,6 +23,7 @@ class UserCreate(BaseModel):
 class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     password: Optional[str] = None
+    influence: Optional[int] = None
 
 
 class UserOut(BaseModel):
@@ -31,6 +32,7 @@ class UserOut(BaseModel):
     role: str
     created_at: datetime
     quiz_taken: bool = False
+    influence: int = 0
 
 
 # --- Квиз ---
@@ -58,6 +60,27 @@ class CardOut(BaseModel):
     cover: Optional[str] = None
 
 
+# --- Прогресс (дашборд) ---
+class CategoryProgress(BaseModel):
+    aspect: str                 # marketing | sales | management
+    label: str
+    level: int
+    done: int                   # пройдено групп в текущем уровне
+    total: int                  # всего групп в текущем уровне
+
+
+class ExperienceOut(BaseModel):
+    level: int                  # сумма уровней категорий
+    done: int
+    total: int
+    days_on_level: int
+
+
+class KnowledgeOut(BaseModel):
+    done: int
+    total: int
+
+
 class DashboardOut(BaseModel):
     quiz_taken: bool
     marketing_level: Optional[int] = None
@@ -68,10 +91,11 @@ class DashboardOut(BaseModel):
     balanced: bool = False   # все три уровня равны → рисуем цилиндр, а не часы
     hint: Optional[str] = None
     cards: list[CardOut] = []
-    # Общий уровень из GetCourse (0..10) и прогресс по урокам. None, если GC не настроен.
-    overall_level: Optional[int] = None
-    lessons_viewed: Optional[int] = None
-    total_lessons: Optional[int] = None
+    # Показатели прогресса (GetCourse + настройки админки). None до прохождения теста.
+    experience: Optional[ExperienceOut] = None
+    categories: list[CategoryProgress] = []
+    knowledge: Optional[KnowledgeOut] = None
+    influence: int = 0
     # Плашка «Повышайте свой уровень» (настраивается в админке).
     promo_title: str = "Повышайте свой уровень"
     promo_image: Optional[str] = None
@@ -162,3 +186,16 @@ class GcGroupUpdate(BaseModel):
 class SyncOut(BaseModel):
     started: bool
     detail: str
+
+
+# --- Настройка шкал прогресса: какие группы входят в уровни и «Знания» (админка) ---
+class ProgressConfigOut(BaseModel):
+    groups: list[GcGroupOut] = []                 # все группы GetCourse — пул для выбора
+    # exp[category][level] = [gc_id, ...]
+    exp: dict[str, dict[int, list[int]]] = {}
+    know: list[int] = []                          # группы трека «Знания»
+
+
+class ProgressConfigUpdate(BaseModel):
+    exp: dict[str, dict[int, list[int]]] = {}
+    know: list[int] = []

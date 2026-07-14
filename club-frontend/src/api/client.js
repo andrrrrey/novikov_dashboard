@@ -76,4 +76,8 @@ export const api = {
   updateGcGroup: (id, counts) =>
     request(`/admin/getcourse/groups/${id}`, { method: "PATCH", body: { counts } }),
   syncGetcourse: () => request("/admin/getcourse/sync", { method: "POST" }),
+
+  // Настройка шкал прогресса (Опыт/Знания)
+  getProgressConfig: () => request("/admin/progress-config"),
+  updateProgressConfig: (config) => request("/admin/progress-config", { method: "PUT", body: config }),
 };

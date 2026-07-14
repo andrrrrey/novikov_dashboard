@@ -18,11 +18,15 @@ from sqlmodel import Session, select
 from app.config import GETCOURSE_POLL_HOURS_DEFAULT, GETCOURSE_SYNC_ENABLED, UPLOAD_DIR
 from app.database import get_session, init_db, session_factory
 from app.getcourse import getcourse_scheduler, sync_getcourse
-from app.models import ContentCard, GcGroup, QuizResult, TrajectoryHint, User
+from app.models import (
+    ContentCard, GcAssignment, GcGroup, QuizResult, TrajectoryHint, User, UserStats,
+)
+from app.progress import CATEGORIES, compute_user_progress
 from app.quiz_data import QUIZ, answers_to_levels
 from app.schemas import (
-    AdminStats, CardAdminOut, CardOut, CardUpdate, DashboardOut, GcGroupOut,
-    GcGroupUpdate, GetCourseOut, GetCourseUpdate, HintOut, HintUpdate, PromoOut,
+    AdminStats, CardAdminOut, CardOut, CardUpdate, CategoryProgress, DashboardOut,
+    ExperienceOut, GcGroupOut, GcGroupUpdate, GetCourseOut, GetCourseUpdate, HintOut,
+    HintUpdate, KnowledgeOut, ProgressConfigOut, ProgressConfigUpdate, PromoOut,
     PromoUpdate, QuizOption, QuizQuestionOut, QuizSubmit, SyncOut, TokenResponse,
     UploadOut, UserCreate, UserOut, UserUpdate,
 )
@@ -32,7 +36,7 @@ from app.security import (
     require_admin, verify_password,
 )
 from app.seed import seed
-from app.settings import compute_overall_level, get_setting, set_setting
+from app.settings import get_setting, set_setting
 
 # Разрешённые типы обложек и лимит размера загрузки.
 ALLOWED_IMAGE_TYPES = {
@@ -146,32 +150,38 @@ def dashboard(
     return _build_dashboard(user, session)
 
 
-def _overall_and_promo(user: User, session: Session) -> dict:
-    """Общие поля дашборда (уровень GetCourse + плашка), не зависящие от квиза."""
-    viewed, total, level = compute_overall_level(session, user.email)
-    # Если групп-уроков ещё нет (GC не настроен / не синхронизирован) — уровень None.
-    if total == 0:
-        overall_level = lessons_viewed = total_lessons = None
-    else:
-        overall_level, lessons_viewed, total_lessons = level, viewed, total
+def _promo(session: Session) -> dict:
+    """Поля плашки «Повышайте свой уровень» (из настроек админки)."""
     return {
-        "overall_level": overall_level,
-        "lessons_viewed": lessons_viewed,
-        "total_lessons": total_lessons,
         "promo_title": get_setting(session, "promo_title") or "Повышайте свой уровень",
         "promo_image": get_setting(session, "promo_image") or None,
         "promo_link": get_setting(session, "promo_link") or None,
     }
 
 
+def _progress_fields(user: User, session: Session) -> dict:
+    """Показатели прогресса для дашборда (опыт, категории, знания, влияние)."""
+    p = compute_user_progress(session, user)
+    return {
+        "experience": ExperienceOut(**p["experience"]),
+        "categories": [CategoryProgress(**c) for c in p["categories"]],
+        "knowledge": KnowledgeOut(**p["knowledge"]),
+        "influence": p["influence"],
+    }
+
+
 def _build_dashboard(user: User, session: Session) -> DashboardOut:
-    common = _overall_and_promo(user, session)
+    common = _promo(session)
 
     result = session.exec(
         select(QuizResult).where(QuizResult.user_id == user.id)
     ).first()
     if result is None:
-        return DashboardOut(quiz_taken=False, **common)
+        # Влияние показываем и без теста (его ставит админ), бары — после теста.
+        stats = session.get(UserStats, user.id)
+        return DashboardOut(quiz_taken=False, influence=stats.influence if stats else 0, **common)
+
+    common.update(_progress_fields(user, session))
 
     hint = session.exec(
         select(TrajectoryHint).where(
@@ -209,13 +219,19 @@ def _build_dashboard(user: User, session: Session) -> DashboardOut:
 
 
 # ------------------------------------------------------------------- Админка
+def _influence(session: Session, user_id: int) -> int:
+    stats = session.get(UserStats, user_id)
+    return stats.influence if stats else 0
+
+
 @app.get("/admin/users", response_model=list[UserOut])
 def list_users(_: User = Depends(require_admin), session: Session = Depends(get_session)):
     users = session.exec(select(User).order_by(User.created_at)).all()
     taken_ids = {r.user_id for r in session.exec(select(QuizResult)).all()}
+    influence = {s.user_id: s.influence for s in session.exec(select(UserStats)).all()}
     return [
-        UserOut(id=u.id, email=u.email, role=u.role,
-                created_at=u.created_at, quiz_taken=u.id in taken_ids)
+        UserOut(id=u.id, email=u.email, role=u.role, created_at=u.created_at,
+                quiz_taken=u.id in taken_ids, influence=influence.get(u.id, 0))
         for u in users
     ]
 
@@ -234,7 +250,7 @@ def create_user(
     session.commit()
     session.refresh(user)
     return UserOut(id=user.id, email=user.email, role=user.role,
-                   created_at=user.created_at, quiz_taken=False)
+                   created_at=user.created_at, quiz_taken=False, influence=0)
 
 
 @app.patch("/admin/users/{user_id}", response_model=UserOut)
@@ -254,13 +270,21 @@ def update_user(
     if payload.password:
         user.password_hash = hash_password(payload.password)
     session.add(user)
+    if payload.influence is not None:
+        stats = session.get(UserStats, user.id)
+        if stats is None:
+            stats = UserStats(user_id=user.id, influence=payload.influence)
+        else:
+            stats.influence = payload.influence
+        session.add(stats)
     session.commit()
     session.refresh(user)
     taken = session.exec(
         select(QuizResult).where(QuizResult.user_id == user.id)
     ).first() is not None
     return UserOut(id=user.id, email=user.email, role=user.role,
-                   created_at=user.created_at, quiz_taken=taken)
+                   created_at=user.created_at, quiz_taken=taken,
+                   influence=_influence(session, user.id))
 
 
 @app.delete("/admin/users/{user_id}", status_code=204)
@@ -279,6 +303,9 @@ def delete_user(
     ).first()
     if result:
         session.delete(result)
+    stats = session.get(UserStats, user_id)
+    if stats:
+        session.delete(stats)
     session.delete(user)
     session.commit()
 
@@ -410,18 +437,20 @@ def update_promo(
 
 # ----------------------------------------------------- Админка: настройки GetCourse
 def _getcourse_out(session: Session) -> GetCourseOut:
-    groups = session.exec(select(GcGroup).order_by(GcGroup.lesson_number)).all()
+    groups = session.exec(select(GcGroup).order_by(GcGroup.name)).all()
     try:
         poll_hours = float(get_setting(session, "gc_poll_hours") or GETCOURSE_POLL_HOURS_DEFAULT)
     except ValueError:
         poll_hours = GETCOURSE_POLL_HOURS_DEFAULT
+    # сколько групп задействовано в шкалах (по ним тянется состав)
+    assigned = {a.gc_group_id for a in session.exec(select(GcAssignment)).all()}
     return GetCourseOut(
         account=get_setting(session, "gc_account"),
         api_key_set=bool(get_setting(session, "gc_api_key").strip()),
         poll_hours=poll_hours,
         last_sync=get_setting(session, "gc_last_sync") or None,
         last_status=get_setting(session, "gc_last_status") or None,
-        total_lessons=sum(1 for g in groups if g.counts),
+        total_lessons=len(assigned),
         groups=[GcGroupOut(id=g.id, gc_id=g.gc_id, name=g.name,
                            lesson_number=g.lesson_number, counts=g.counts) for g in groups],
     )
@@ -486,3 +515,44 @@ async def sync_getcourse_now(
                             detail="Сначала укажите домен и ключ GetCourse")
     background.add_task(sync_getcourse, session_factory)
     return SyncOut(started=True, detail="Синхронизация запущена в фоне")
+
+
+# ---------------------- Админка: состав групп для шкал «Опыт» и «Знания»
+@app.get("/admin/progress-config", response_model=ProgressConfigOut)
+def get_progress_config(_: User = Depends(require_admin), session: Session = Depends(get_session)):
+    groups = session.exec(select(GcGroup).order_by(GcGroup.name)).all()
+    exp: dict[str, dict[int, list[int]]] = {c: {} for c in CATEGORIES}
+    know: list[int] = []
+    for a in session.exec(select(GcAssignment)).all():
+        if a.track == "know":
+            know.append(a.gc_group_id)
+        elif a.track == "exp" and a.category in exp and a.level is not None:
+            exp[a.category].setdefault(a.level, []).append(a.gc_group_id)
+    return ProgressConfigOut(
+        groups=[GcGroupOut(id=g.id, gc_id=g.gc_id, name=g.name,
+                           lesson_number=g.lesson_number, counts=g.counts) for g in groups],
+        exp=exp,
+        know=sorted(set(know)),
+    )
+
+
+@app.put("/admin/progress-config", response_model=ProgressConfigOut)
+def update_progress_config(
+    payload: ProgressConfigUpdate,
+    _: User = Depends(require_admin),
+    session: Session = Depends(get_session),
+):
+    # полная перезапись назначений
+    for a in session.exec(select(GcAssignment)).all():
+        session.delete(a)
+    for category, levels in (payload.exp or {}).items():
+        if category not in CATEGORIES:
+            continue
+        for level, gc_ids in (levels or {}).items():
+            for gc_id in dict.fromkeys(gc_ids):   # уникальные, порядок сохраняем
+                session.add(GcAssignment(track="exp", category=category,
+                                         level=int(level), gc_group_id=int(gc_id)))
+    for gc_id in dict.fromkeys(payload.know or []):
+        session.add(GcAssignment(track="know", gc_group_id=int(gc_id)))
+    session.commit()
+    return get_progress_config(session=session)

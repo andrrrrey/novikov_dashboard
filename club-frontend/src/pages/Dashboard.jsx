@@ -51,16 +51,75 @@ export default function Dashboard() {
             bottleneck={{ aspect: data.bottleneck_aspect, level: data.bottleneck_level }}
             hint={data.hint}
             balanced={data.balanced}
-            overallLevel={data.overall_level}
           />
           <div className="dash-retake">
             <button className="btn" onClick={() => navigate("/quiz")}>Пройти тест заново</button>
           </div>
         </section>
 
+        <StatsPanel data={data} />
+
         {promo}
       </div>
     </Shell>
+  );
+}
+
+// Панель показателей: Опыт, категории, Знания, Влияние.
+function StatsPanel({ data }) {
+  const exp = data.experience;
+  return (
+    <section className="panel stats">
+      {exp && (
+        <div className="stat-exp">
+          <div className="stat-exp-head">
+            <span className="stat-exp-title">Опыт</span>
+            <span className="stat-exp-level">Ваш уровень: {exp.level}</span>
+          </div>
+          <Bar done={exp.done} total={exp.total} big />
+          <div className="stat-exp-days muted">{exp.days_on_level} дн. на этом уровне</div>
+        </div>
+      )}
+
+      <div className="stat-cats">
+        {(data.categories || []).map((c) => (
+          <div className="stat-row" key={c.aspect}>
+            <div className="stat-row-head">
+              <span className="stat-row-name">{c.label}</span>
+              <span className="stat-row-lvl muted">Ваш уровень: {c.level}</span>
+            </div>
+            <Bar done={c.done} total={c.total} />
+          </div>
+        ))}
+      </div>
+
+      {data.knowledge && (
+        <div className="stat-row">
+          <div className="stat-row-head">
+            <span className="stat-row-name">Знания</span>
+            <span className="stat-row-lvl muted">{data.knowledge.done} из {data.knowledge.total}</span>
+          </div>
+          <Bar done={data.knowledge.done} total={data.knowledge.total} />
+        </div>
+      )}
+
+      <div className="stat-influence">
+        <span className="stat-influence-label">Влияние</span>
+        <span className="stat-influence-val">{data.influence ?? 0}</span>
+      </div>
+    </section>
+  );
+}
+
+function Bar({ done, total, big = false }) {
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  return (
+    <div className={`bar ${big ? "bar-big" : ""}`}>
+      <div className="bar-track">
+        <div className="bar-fill" style={{ width: `${pct}%` }} />
+      </div>
+      <span className="bar-num">{done}/{total}</span>
+    </div>
   );
 }
 
