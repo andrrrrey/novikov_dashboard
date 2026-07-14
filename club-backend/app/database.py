@@ -15,3 +15,8 @@ def init_db() -> None:
 def get_session():
     with Session(engine) as session:
         yield session
+
+
+def session_factory() -> Session:
+    """Новая сессия как контекст-менеджер (для фоновых задач вне FastAPI-депенденси)."""
+    return Session(engine)

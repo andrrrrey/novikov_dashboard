@@ -54,3 +54,35 @@ class TrajectoryHint(SQLModel, table=True):
     aspect: str = Field(index=True)
     level: int = Field(index=True)
     hint_text: str
+
+
+class Setting(SQLModel, table=True):
+    """Простое key-value хранилище настроек (плашка, доступ к GetCourse и т.п.)."""
+    key: str = Field(primary_key=True)
+    value: str = ""
+
+
+class GcGroup(SQLModel, table=True):
+    """
+    Группа GetCourse вида «Урок NN просмотрен» — один сегмент прогресса.
+    Заполняется опросом GetCourse. counts=True → входит в расчёт уровня.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    gc_id: int = Field(index=True, unique=True)   # id группы в GetCourse
+    name: str
+    lesson_number: int = Field(index=True)        # номер урока из названия
+    counts: bool = Field(default=True)            # учитывать при расчёте уровня
+
+
+class LessonView(SQLModel, table=True):
+    """
+    Хранилище «кто какой урок просмотрел». Строка = резидент состоит в группе урока.
+    email — из GetCourse (lower-case), user_id проставляется сопоставлением по email.
+    """
+    __table_args__ = (UniqueConstraint("email", "gc_group_id"),)
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    email: str = Field(index=True)                # email из GetCourse, lower-case
+    gc_group_id: int = Field(index=True)          # GcGroup.gc_id
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
+    first_seen: datetime = Field(default_factory=_now)

@@ -99,6 +99,38 @@
 }
 .dash-card-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
+/* Плашка «Повышайте свой уровень» */
+.dash-promo {
+  display: block; overflow: hidden; padding: 0; text-decoration: none;
+  transition: transform 0.1s ease, border-color 0.15s ease;
+}
+.dash-promo:hover { transform: translateY(-2px); border-color: var(--border-strong); }
+.dash-promo.is-locked { opacity: 0.7; cursor: default; }
+.dash-promo.is-locked:hover { transform: none; }
+.dash-promo-cover {
+  display: block; aspect-ratio: 16 / 5; background: rgba(255, 255, 255, 0.03); overflow: hidden;
+}
+.dash-promo-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.dash-promo-body {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 18px 20px;
+}
+.dash-promo-title { font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
+.dash-promo-cta { font-size: 13px; color: var(--text-dim); font-weight: 600; white-space: nowrap; }
+
+/* --- Админка: GetCourse --- */
+.admin-gc-form { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; }
+.admin-gc-field { display: flex; flex-direction: column; gap: 5px; flex: 1 1 240px; font-size: 13px; }
+.admin-gc-field > span { color: var(--text-dim); }
+.admin-gc-field-sm { flex: 0 0 140px; }
+.admin-gc-note { align-self: center; }
+.admin-gc-status { font-size: 13px; margin-top: 12px; display: flex; flex-direction: column; gap: 3px; }
+.admin-gc-groups { margin-top: 16px; }
+.admin-gc-group {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 4px; border-bottom: 1px solid var(--border); font-size: 14px; cursor: pointer;
+}
+
 /* --- Админка --- */
 .admin-main { max-width: 900px; margin: 0 auto; padding: 26px 20px 60px; }
 .admin-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 22px; }

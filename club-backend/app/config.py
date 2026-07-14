@@ -15,3 +15,9 @@ UPLOAD_DIR = os.getenv("UPLOAD_DIR", "./uploads")
 # Засеваемый администратор (первый вход). Пароль в проде — из окружения.
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "admin@club.ru")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin12345")
+
+# GetCourse: домен и ключ задаются в админке (таблица Setting), не здесь.
+# Тут только флаг фонового планировщика (в тестах отключаем, чтобы не ходить в сеть)
+# и дефолтный период опроса, если он не задан в настройках.
+GETCOURSE_SYNC_ENABLED = os.getenv("GETCOURSE_SYNC_ENABLED", "1") not in ("0", "false", "False", "")
+GETCOURSE_POLL_HOURS_DEFAULT = float(os.getenv("GETCOURSE_POLL_HOURS", "2"))
