@@ -54,6 +54,10 @@ def _dig(data: Any, key: str) -> Any:
     return None
 
 
+class GetCourseError(Exception):
+    """Ошибка, которую GetCourse вернул в теле ответа (success=false)."""
+
+
 class GetCourseClient:
     def __init__(self, account: str, api_key: str, client: httpx.AsyncClient):
         self.base = f"https://{account}.getcourse.ru/pl/api/account"
@@ -67,11 +71,23 @@ class GetCourseClient:
             timeout=HTTP_TIMEOUT,
         )
         resp.raise_for_status()
-        return resp.json()
+        data = resp.json()
+        # GetCourse отдаёт ошибки в теле с HTTP 200: {"success":false,"error_message":...}
+        if isinstance(data, dict) and data.get("success") is False:
+            msg = data.get("error_message") or f"код {data.get('error_code')}"
+            raise GetCourseError(msg)
+        return data
 
     async def list_groups(self) -> list[dict]:
-        """Список групп: [{'id': int, 'name': str}, ...]."""
+        """
+        Список групп: [{'id': int, 'name': str, ...}, ...].
+        GetCourse кладёт группы прямо в поле info (список).
+        """
         data = await self._get("/groups")
+        info = data.get("info") if isinstance(data, dict) else None
+        if isinstance(info, list):
+            return info
+        # запасные варианты на случай иного формата
         groups = _dig(data, "groups")
         if groups is None and isinstance(data, list):
             groups = data
@@ -81,6 +97,11 @@ class GetCourseClient:
         """Стартовать экспорт состава группы, вернуть export_id."""
         data = await self._get(f"/groups/{gc_id}/users")
         export_id = _dig(data, "export_id")
+        if export_id is None:
+            # info может быть самим id экспорта
+            info = data.get("info") if isinstance(data, dict) else None
+            if isinstance(info, (int, str)) and str(info).isdigit():
+                export_id = info
         return int(export_id) if export_id is not None else None
 
     async def fetch_export(self, export_id: int) -> Optional[list[dict]]:
@@ -224,6 +245,10 @@ async def sync_getcourse(session_factory: Callable[[], Session]) -> str:
                 )
                 _write_status(session_factory, status)
                 return status
+        except GetCourseError as exc:
+            status = f"GetCourse отклонил запрос: {exc}"
+            _write_status(session_factory, status)
+            return status
         except httpx.HTTPError as exc:
             status = f"ошибка сети GetCourse: {exc}"
             _write_status(session_factory, status)

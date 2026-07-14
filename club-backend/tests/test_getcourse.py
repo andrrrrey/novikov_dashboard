@@ -3,12 +3,17 @@
 парсинг экспорта и админ-эндпоинты (плашка + настройки GC).
 """
 
+import asyncio
+
+import httpx
 import pytest
 from sqlmodel import Session, select
 
 import app.database as database
 from app.config import ADMIN_EMAIL, ADMIN_PASSWORD
-from app.getcourse import parse_lesson_number, _extract_email
+from app.getcourse import (
+    GetCourseClient, GetCourseError, parse_lesson_number, _extract_email,
+)
 from app.models import GcGroup, LessonView, User
 from app.settings import compute_overall_level
 
@@ -47,6 +52,53 @@ def test_extract_email():
     assert _extract_email({"Email": "USER@Example.com "}) == "user@example.com"
     assert _extract_email({"id": "1", "e-mail": "a@b.ru"}) == "a@b.ru"
     assert _extract_email({"name": "Иван", "city": "Москва"}) is None
+
+
+# ------------------------------------------------- клиент: реальный формат GC
+def _mock_client(handler, account="novikovclub", key="KEY"):
+    http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    return GetCourseClient(account, key, http), http
+
+
+def test_list_groups_parses_info_list():
+    # GetCourse кладёт группы прямо в info (список), как в реальном ответе аккаунта
+    def handler(request):
+        return httpx.Response(200, json={"success": True, "error": False, "error_message": "",
+            "info": [
+                {"id": 4848962, "name": "Траектория 1", "last_added_at": "2026-06-22 11:44:29"},
+                {"id": 4883599, "name": "Урок 01 просмотрен", "last_added_at": "2026-07-14 12:16:21"},
+            ]})
+
+    async def run():
+        client, http = _mock_client(handler)
+        try:
+            groups = await client.list_groups()
+        finally:
+            await http.aclose()
+        return groups
+
+    groups = asyncio.run(run())
+    assert [g["id"] for g in groups] == [4848962, 4883599]
+    # только «Урок NN просмотрен» распознаётся как урок
+    lessons = [(g["id"], parse_lesson_number(g["name"])) for g in groups]
+    assert [(gid, n) for gid, n in lessons if n is not None] == [(4883599, 1)]
+
+
+def test_api_error_surfaces():
+    # success:false с телом ошибки должен подниматься как GetCourseError, а не давать «0 групп»
+    def handler(request):
+        return httpx.Response(200, json={"success": False, "info": [],
+            "error_message": "Неавторизованное API-обращение", "error": True, "error_code": 901})
+
+    async def run():
+        client, http = _mock_client(handler, key="BAD")
+        try:
+            await client.list_groups()
+        finally:
+            await http.aclose()
+
+    with pytest.raises(GetCourseError, match="Неавторизованное"):
+        asyncio.run(run())
 
 
 # --------------------------------------------------------- расчёт уровня 1..10
