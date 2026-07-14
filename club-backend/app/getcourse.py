@@ -28,8 +28,13 @@ LESSON_GROUP_RE = re.compile(r"урок\s*0*(\d+).*просмотр", re.IGNOREC
 
 # Бюджет запросов к export-API на один цикл (лимит GetCourse — 100 за 2 ч, берём с запасом).
 REQUEST_BUDGET = 90
-EXPORT_POLL_ATTEMPTS = 6       # опросов готовности одного экспорта
-EXPORT_POLL_DELAY = 3.0        # сек между опросами одного экспорта
+# Экспорт в GetCourse асинхронный и обычно готов за 10–60 с. Опрашиваем терпеливо,
+# иначе бросим незабранный экспорт — и он заблокирует следующий («уже запущен один экспорт»).
+EXPORT_POLL_ATTEMPTS = 12      # опросов готовности одного экспорта
+EXPORT_POLL_DELAY = 6.0        # сек между опросами одного экспорта (до ~72 с ожидания)
+# GetCourse разрешает лишь один экспорт за раз. Если предыдущий ещё идёт — ждём и повторяем старт.
+START_RETRY_ATTEMPTS = 3
+START_RETRY_DELAY = 20.0       # сек ожидания, пока освободится слот экспорта
 BETWEEN_REQUESTS_DELAY = 1.0   # сек между любыми запросами (вежливость к API)
 HTTP_TIMEOUT = 30.0
 
@@ -41,6 +46,12 @@ def parse_lesson_number(name: str) -> Optional[int]:
     """Из имени группы «Урок NN просмотрен» вернуть NN, иначе None."""
     m = LESSON_GROUP_RE.search(name or "")
     return int(m.group(1)) if m else None
+
+
+def _is_busy_error(exc: Exception) -> bool:
+    """GetCourse: «Уже запущен один экспорт, попробуйте позднее» — слот экспорта занят."""
+    text = str(exc).lower()
+    return "уже запущен" in text or "already" in text or "попробуйте позднее" in text
 
 
 def _dig(data: Any, key: str) -> Any:
@@ -203,34 +214,52 @@ async def sync_getcourse(session_factory: Callable[[], Session]) -> str:
 
                 # 2) round-robin по группам в рамках бюджета запросов
                 processed = 0
+                last_error = ""
                 n = len(gc_ids)
                 start = cursor % n
-                per_group_cost = 1 + EXPORT_POLL_ATTEMPTS
+                per_group_cost = 1 + START_RETRY_ATTEMPTS + EXPORT_POLL_ATTEMPTS
                 idx = start
                 for _ in range(n):
                     if requests_used + per_group_cost > REQUEST_BUDGET:
                         break
                     gc_id = gc_ids[idx]
-                    await asyncio.sleep(BETWEEN_REQUESTS_DELAY)
-                    export_id = await client.start_group_export(gc_id)
-                    requests_used += 1
-
-                    rows = None
-                    if export_id is not None:
-                        for _attempt in range(EXPORT_POLL_ATTEMPTS):
-                            await asyncio.sleep(EXPORT_POLL_DELAY)
-                            rows = await client.fetch_export(export_id)
-                            requests_used += 1
-                            if rows is not None:
+                    try:
+                        await asyncio.sleep(BETWEEN_REQUESTS_DELAY)
+                        # старт экспорта: если слот занят предыдущим — ждём и повторяем
+                        export_id = None
+                        for attempt in range(START_RETRY_ATTEMPTS + 1):
+                            try:
+                                export_id = await client.start_group_export(gc_id)
+                                requests_used += 1
                                 break
+                            except GetCourseError as exc:
+                                requests_used += 1
+                                if _is_busy_error(exc) and attempt < START_RETRY_ATTEMPTS:
+                                    await asyncio.sleep(START_RETRY_DELAY)
+                                    continue
+                                raise
 
-                    if rows is not None:
-                        emails = {e for e in (_extract_email(r) for r in rows) if e}
-                        with session_factory() as session:
-                            email_to_uid = _email_to_uid(session)
-                            _sync_group_views(session, gc_id, emails, email_to_uid)
-                            session.commit()
-                        processed += 1
+                        rows = None
+                        if export_id is not None:
+                            for _poll in range(EXPORT_POLL_ATTEMPTS):
+                                await asyncio.sleep(EXPORT_POLL_DELAY)
+                                rows = await client.fetch_export(export_id)
+                                requests_used += 1
+                                if rows is not None:
+                                    break
+
+                        if rows is not None:
+                            emails = {e for e in (_extract_email(r) for r in rows) if e}
+                            with session_factory() as session:
+                                email_to_uid = _email_to_uid(session)
+                                _sync_group_views(session, gc_id, emails, email_to_uid)
+                                session.commit()
+                            processed += 1
+                        else:
+                            last_error = "экспорт не готов за отведённое время"
+                    except GetCourseError as exc:
+                        # ошибка по одной группе не должна ронять весь цикл
+                        last_error = str(exc)
 
                     idx = (idx + 1) % n
 
@@ -239,10 +268,9 @@ async def sync_getcourse(session_factory: Callable[[], Session]) -> str:
                     set_setting(session, "gc_cursor", str(idx))
                     session.commit()
 
-                status = (
-                    f"ок: групп-уроков {n}, обновлено за цикл {processed}, "
-                    f"запросов {requests_used}"
-                )
+                status = f"ок: групп-уроков {n}, обновлено за цикл {processed}, запросов {requests_used}"
+                if processed < n and last_error:
+                    status += f"; не все группы: {last_error}"
                 _write_status(session_factory, status)
                 return status
         except GetCourseError as exc:
