@@ -111,6 +111,8 @@ export default function Admin() {
           </div>
         </div>
 
+        <PromoBlock onError={setError} />
+        <GetCourseBlock onError={setError} />
         <CardsBlock cards={cards} onError={setError} />
         <HintsBlock hints={hints} onError={setError} />
       </main>
@@ -281,6 +283,190 @@ function HintEditor({ hint, onError }) {
           {saving ? "Сохраняем…" : saved ? "Сохранено ✓" : "Сохранить"}
         </button>
       </div>
+    </div>
+  );
+}
+
+// --- Плашка «Повышайте свой уровень»: картинка + ссылка + заголовок ---
+function PromoBlock({ onError }) {
+  const [promo, setPromo] = useState(null);
+  const [title, setTitle] = useState("");
+  const [link, setLink] = useState("");
+  const [image, setImage] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    api.getPromo().then((p) => {
+      setPromo(p); setTitle(p.title || ""); setLink(p.link || ""); setImage(p.image || "");
+    }).catch((e) => onError(e.message));
+  }, []);
+
+  if (!promo) return null;
+  const dirty = title !== (promo.title || "") || link !== (promo.link || "") || image !== (promo.image || "");
+
+  async function onFile(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploading(true); setSaved(false);
+    try {
+      const { url } = await api.uploadImage(file);
+      setImage(url);
+    } catch (err) { onError(err.message); } finally { setUploading(false); }
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      const updated = await api.updatePromo({ title, link, image });
+      setPromo(updated);
+      setTitle(updated.title || ""); setLink(updated.link || ""); setImage(updated.image || "");
+      setSaved(true);
+    } catch (err) { onError(err.message); } finally { setSaving(false); }
+  }
+
+  return (
+    <div className="panel admin-block">
+      <h2 className="admin-h2">Плашка «Повышайте свой уровень»</h2>
+      <p className="muted admin-note">
+        Показывается резиденту на дашборде вместо блока траектории. Задайте заголовок, ссылку и картинку
+        (PNG/JPEG/WEBP, до 5 МБ).
+      </p>
+      <div className="admin-card">
+        <div className="admin-card-cover">
+          {image ? <img src={image} alt="" /> : <span className="admin-card-cover-empty">нет картинки</span>}
+        </div>
+        <div className="admin-card-body">
+          <input className="input" type="text" placeholder="Заголовок плашки"
+                 value={title} onChange={(e) => { setTitle(e.target.value); setSaved(false); }} />
+          <input className="input admin-card-url" type="url" placeholder="https:// ссылка"
+                 value={link} onChange={(e) => { setLink(e.target.value); setSaved(false); }} />
+          <div className="admin-card-actions">
+            <label className="btn admin-mini">
+              {uploading ? "Загрузка…" : "Картинка…"}
+              <input type="file" accept="image/png,image/jpeg,image/webp"
+                     hidden onChange={onFile} disabled={uploading} />
+            </label>
+            {image && (
+              <button className="btn admin-mini" onClick={() => { setImage(""); setSaved(false); }}>
+                Убрать
+              </button>
+            )}
+            <button className="btn btn-primary admin-mini" onClick={save}
+                    disabled={saving || uploading || !dirty}>
+              {saving ? "Сохраняем…" : saved ? "Сохранено ✓" : "Сохранить"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- GetCourse: доступ, интервал опроса, ручная синхронизация, список групп-уроков ---
+function GetCourseBlock({ onError }) {
+  const [gc, setGc] = useState(null);
+  const [account, setAccount] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const [pollHours, setPollHours] = useState("2");
+  const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [note, setNote] = useState("");
+
+  async function load() {
+    const data = await api.getGetcourse();
+    setGc(data);
+    setAccount(data.account || "");
+    setPollHours(String(data.poll_hours ?? "2"));
+  }
+
+  useEffect(() => { load().catch((e) => onError(e.message)); }, []);
+  if (!gc) return null;
+
+  async function save() {
+    setSaving(true); setNote("");
+    try {
+      const patch = { account, poll_hours: Number(pollHours) };
+      if (apiKey.trim()) patch.api_key = apiKey.trim();
+      await api.updateGetcourse(patch);
+      setApiKey("");
+      await load();
+      setNote("Сохранено");
+    } catch (err) { onError(err.message); } finally { setSaving(false); }
+  }
+
+  async function sync() {
+    setSyncing(true); setNote("");
+    try {
+      const r = await api.syncGetcourse();
+      setNote(r.detail || "Синхронизация запущена");
+      // статус обновится через несколько секунд — перечитываем
+      setTimeout(() => load().catch(() => {}), 6000);
+    } catch (err) { onError(err.message); } finally { setSyncing(false); }
+  }
+
+  async function toggleGroup(g) {
+    try {
+      await api.updateGcGroup(g.id, !g.counts);
+      await load();
+    } catch (err) { onError(err.message); }
+  }
+
+  return (
+    <div className="panel admin-block">
+      <h2 className="admin-h2">GetCourse — прогресс и уровень</h2>
+      <p className="muted admin-note">
+        Сервер сам опрашивает GetCourse по расписанию, читает составы групп «Урок NN просмотрен»
+        и считает уровень резидента (1–10). Ключ создаётся в GetCourse: раздел «Настройки → API».
+      </p>
+
+      <div className="admin-gc-form">
+        <label className="admin-gc-field">
+          <span>Домен аккаунта</span>
+          <input className="input" type="text" placeholder="например, myclub (или myclub.getcourse.ru)"
+                 value={account} onChange={(e) => setAccount(e.target.value)} />
+        </label>
+        <label className="admin-gc-field">
+          <span>API-ключ {gc.api_key_set && <em className="muted">(задан — оставьте пустым, чтобы не менять)</em>}</span>
+          <input className="input" type="password" placeholder={gc.api_key_set ? "••••••••" : "секретный ключ"}
+                 value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
+        </label>
+        <label className="admin-gc-field admin-gc-field-sm">
+          <span>Опрос, часов</span>
+          <input className="input" type="number" min="0.5" step="0.5"
+                 value={pollHours} onChange={(e) => setPollHours(e.target.value)} />
+        </label>
+      </div>
+
+      <div className="admin-card-actions">
+        <button className="btn btn-primary admin-mini" onClick={save} disabled={saving}>
+          {saving ? "Сохраняем…" : "Сохранить"}
+        </button>
+        <button className="btn admin-mini" onClick={sync} disabled={syncing || !gc.api_key_set}>
+          {syncing ? "Запуск…" : "Синхронизировать сейчас"}
+        </button>
+        {note && <span className="muted admin-gc-note">{note}</span>}
+      </div>
+
+      <div className="admin-gc-status muted">
+        <div>Последняя синхронизация: {gc.last_sync ? new Date(gc.last_sync).toLocaleString() : "—"}</div>
+        <div>Статус: {gc.last_status || "—"}</div>
+        <div>Засчитываемых уроков (N для шкалы): <strong>{gc.total_lessons}</strong></div>
+      </div>
+
+      {gc.groups.length > 0 && (
+        <div className="admin-gc-groups">
+          <h3 className="admin-group-h">Найденные группы-уроки</h3>
+          {gc.groups.map((g) => (
+            <label className="admin-gc-group" key={g.id}>
+              <input type="checkbox" checked={g.counts} onChange={() => toggleGroup(g)} />
+              <span>№{g.lesson_number} · {g.name}</span>
+            </label>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -68,8 +68,14 @@ class DashboardOut(BaseModel):
     balanced: bool = False   # все три уровня равны → рисуем цилиндр, а не часы
     hint: Optional[str] = None
     cards: list[CardOut] = []
-    # Плейсхолдер под будущий прогресс из GetCourse (сейчас не заполняется).
-    getcourse_progress: Optional[int] = None
+    # Общий уровень из GetCourse (0..10) и прогресс по урокам. None, если GC не настроен.
+    overall_level: Optional[int] = None
+    lessons_viewed: Optional[int] = None
+    total_lessons: Optional[int] = None
+    # Плашка «Повышайте свой уровень» (настраивается в админке).
+    promo_title: str = "Повышайте свой уровень"
+    promo_image: Optional[str] = None
+    promo_link: Optional[str] = None
 
 
 # --- Статистика (админка) ---
@@ -109,3 +115,50 @@ class HintUpdate(BaseModel):
 
 class UploadOut(BaseModel):
     url: str
+
+
+# --- Плашка «Повышайте свой уровень» (админка) ---
+class PromoOut(BaseModel):
+    title: str
+    image: Optional[str] = None
+    link: Optional[str] = None
+
+
+class PromoUpdate(BaseModel):
+    title: Optional[str] = None
+    image: Optional[str] = None
+    link: Optional[str] = None
+
+
+# --- GetCourse (админка) ---
+class GcGroupOut(BaseModel):
+    id: int
+    gc_id: int
+    name: str
+    lesson_number: int
+    counts: bool
+
+
+class GetCourseOut(BaseModel):
+    account: str
+    api_key_set: bool           # ключ не отдаём наружу, только флаг «задан»
+    poll_hours: float
+    last_sync: Optional[str] = None
+    last_status: Optional[str] = None
+    total_lessons: int          # число засчитываемых групп (N для шкалы)
+    groups: list[GcGroupOut] = []
+
+
+class GetCourseUpdate(BaseModel):
+    account: Optional[str] = None
+    api_key: Optional[str] = None
+    poll_hours: Optional[float] = None
+
+
+class GcGroupUpdate(BaseModel):
+    counts: bool
+
+
+class SyncOut(BaseModel):
+    started: bool
+    detail: str

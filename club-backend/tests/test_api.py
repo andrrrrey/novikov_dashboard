@@ -3,35 +3,9 @@
 Использует изолированную БД (in-memory), чтобы не трогать рабочий club.db.
 """
 
-import os
-import sys
-from pathlib import Path
+from app.config import ADMIN_EMAIL, ADMIN_PASSWORD
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-os.environ["DATABASE_URL"] = "sqlite://"   # in-memory, до импорта приложения
-
-import pytest
-from fastapi.testclient import TestClient
-from sqlmodel import SQLModel
-from sqlmodel.pool import StaticPool
-from sqlalchemy import create_engine
-
-import app.database as database
-
-# Единый in-memory engine на весь тест-модуль
-test_engine = create_engine(
-    "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
-)
-database.engine = test_engine
-
-from app.main import app  # noqa: E402  (импорт после подмены engine)
-from app.config import ADMIN_EMAIL, ADMIN_PASSWORD  # noqa: E402
-
-
-@pytest.fixture(scope="module")
-def client():
-    with TestClient(app) as c:   # startup создаёт таблицы и сид
-        yield c
+# engine/app/client живут в conftest.py (общие на всю сессию).
 
 
 def _login(client, email, password):
@@ -109,7 +83,10 @@ def test_full_resident_flow(client):
     assert data["hint"].startswith("Узкое место: Маркетинг")
     assert len(data["cards"]) == 3
     assert data["cards"][0]["title"] == "Привлечение клиентов. Вводный урок"
-    assert data["getcourse_progress"] is None   # плейсхолдер
+    # GetCourse не настроен в тесте → общий уровень отсутствует, плашка с дефолтным заголовком
+    assert data["overall_level"] is None
+    assert data["total_lessons"] is None
+    assert data["promo_title"] == "Повышайте свой уровень"
 
 
 def test_balanced_when_all_levels_equal(client):

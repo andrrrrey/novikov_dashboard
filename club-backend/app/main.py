@@ -3,24 +3,27 @@ FastAPI-приложение: авторизация, квиз, дашборд �
 GetCourse и связанный с ним прогресс в этот скоуп не входят.
 """
 
+import asyncio
 import json
 import os
 import uuid
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, HTTPException, UploadFile, status
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session, select
 
-from app.config import UPLOAD_DIR
-from app.database import get_session, init_db
-from app.models import ContentCard, QuizResult, TrajectoryHint, User
+from app.config import GETCOURSE_POLL_HOURS_DEFAULT, GETCOURSE_SYNC_ENABLED, UPLOAD_DIR
+from app.database import get_session, init_db, session_factory
+from app.getcourse import getcourse_scheduler, sync_getcourse
+from app.models import ContentCard, GcGroup, QuizResult, TrajectoryHint, User
 from app.quiz_data import QUIZ, answers_to_levels
 from app.schemas import (
-    AdminStats, CardAdminOut, CardOut, CardUpdate, DashboardOut, HintOut,
-    HintUpdate, QuizOption, QuizQuestionOut, QuizSubmit, TokenResponse,
+    AdminStats, CardAdminOut, CardOut, CardUpdate, DashboardOut, GcGroupOut,
+    GcGroupUpdate, GetCourseOut, GetCourseUpdate, HintOut, HintUpdate, PromoOut,
+    PromoUpdate, QuizOption, QuizQuestionOut, QuizSubmit, SyncOut, TokenResponse,
     UploadOut, UserCreate, UserOut, UserUpdate,
 )
 from app.scoring import evaluate, Aspect
@@ -29,6 +32,7 @@ from app.security import (
     require_admin, verify_password,
 )
 from app.seed import seed
+from app.settings import compute_overall_level, get_setting, set_setting
 
 # Разрешённые типы обложек и лимит размера загрузки.
 ALLOWED_IMAGE_TYPES = {
@@ -43,7 +47,19 @@ MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 МБ
 async def lifespan(_: FastAPI):
     init_db()
     seed()
-    yield
+    task = None
+    if GETCOURSE_SYNC_ENABLED:
+        # Фоновый опрос GetCourse. Один воркер uvicorn (в проде без --workers) → без дублей.
+        task = asyncio.create_task(getcourse_scheduler(session_factory))
+    try:
+        yield
+    finally:
+        if task is not None:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
 
 app = FastAPI(title="Клуб — личный кабинет резидента", lifespan=lifespan)
@@ -130,12 +146,32 @@ def dashboard(
     return _build_dashboard(user, session)
 
 
+def _overall_and_promo(user: User, session: Session) -> dict:
+    """Общие поля дашборда (уровень GetCourse + плашка), не зависящие от квиза."""
+    viewed, total, level = compute_overall_level(session, user.email)
+    # Если групп-уроков ещё нет (GC не настроен / не синхронизирован) — уровень None.
+    if total == 0:
+        overall_level = lessons_viewed = total_lessons = None
+    else:
+        overall_level, lessons_viewed, total_lessons = level, viewed, total
+    return {
+        "overall_level": overall_level,
+        "lessons_viewed": lessons_viewed,
+        "total_lessons": total_lessons,
+        "promo_title": get_setting(session, "promo_title") or "Повышайте свой уровень",
+        "promo_image": get_setting(session, "promo_image") or None,
+        "promo_link": get_setting(session, "promo_link") or None,
+    }
+
+
 def _build_dashboard(user: User, session: Session) -> DashboardOut:
+    common = _overall_and_promo(user, session)
+
     result = session.exec(
         select(QuizResult).where(QuizResult.user_id == user.id)
     ).first()
     if result is None:
-        return DashboardOut(quiz_taken=False)
+        return DashboardOut(quiz_taken=False, **common)
 
     hint = session.exec(
         select(TrajectoryHint).where(
@@ -168,7 +204,7 @@ def _build_dashboard(user: User, session: Session) -> DashboardOut:
         hint=hint.hint_text if hint else None,
         cards=[CardOut(position=c.position, title=c.title,
                        getcourse_url=c.getcourse_url, cover=c.cover) for c in cards],
-        getcourse_progress=None,   # подключим с модулем GetCourse
+        **common,
     )
 
 
@@ -339,3 +375,114 @@ async def upload_cover(
     with open(os.path.join(UPLOAD_DIR, name), "wb") as fh:
         fh.write(data)
     return UploadOut(url=f"/club/api/uploads/{name}")
+
+
+# ------------------------------------------- Админка: плашка «Повышайте свой уровень»
+@app.get("/admin/promo", response_model=PromoOut)
+def get_promo(_: User = Depends(require_admin), session: Session = Depends(get_session)):
+    return PromoOut(
+        title=get_setting(session, "promo_title") or "Повышайте свой уровень",
+        image=get_setting(session, "promo_image") or None,
+        link=get_setting(session, "promo_link") or None,
+    )
+
+
+@app.patch("/admin/promo", response_model=PromoOut)
+def update_promo(
+    payload: PromoUpdate,
+    _: User = Depends(require_admin),
+    session: Session = Depends(get_session),
+):
+    data = payload.model_dump(exclude_unset=True)
+    if "title" in data:
+        set_setting(session, "promo_title", (data["title"] or "").strip() or "Повышайте свой уровень")
+    if "image" in data:
+        set_setting(session, "promo_image", (data["image"] or "").strip())
+    if "link" in data:
+        set_setting(session, "promo_link", (data["link"] or "").strip())
+    session.commit()
+    return PromoOut(
+        title=get_setting(session, "promo_title") or "Повышайте свой уровень",
+        image=get_setting(session, "promo_image") or None,
+        link=get_setting(session, "promo_link") or None,
+    )
+
+
+# ----------------------------------------------------- Админка: настройки GetCourse
+def _getcourse_out(session: Session) -> GetCourseOut:
+    groups = session.exec(select(GcGroup).order_by(GcGroup.lesson_number)).all()
+    try:
+        poll_hours = float(get_setting(session, "gc_poll_hours") or GETCOURSE_POLL_HOURS_DEFAULT)
+    except ValueError:
+        poll_hours = GETCOURSE_POLL_HOURS_DEFAULT
+    return GetCourseOut(
+        account=get_setting(session, "gc_account"),
+        api_key_set=bool(get_setting(session, "gc_api_key").strip()),
+        poll_hours=poll_hours,
+        last_sync=get_setting(session, "gc_last_sync") or None,
+        last_status=get_setting(session, "gc_last_status") or None,
+        total_lessons=sum(1 for g in groups if g.counts),
+        groups=[GcGroupOut(id=g.id, gc_id=g.gc_id, name=g.name,
+                           lesson_number=g.lesson_number, counts=g.counts) for g in groups],
+    )
+
+
+@app.get("/admin/getcourse", response_model=GetCourseOut)
+def get_getcourse(_: User = Depends(require_admin), session: Session = Depends(get_session)):
+    return _getcourse_out(session)
+
+
+@app.patch("/admin/getcourse", response_model=GetCourseOut)
+def update_getcourse(
+    payload: GetCourseUpdate,
+    _: User = Depends(require_admin),
+    session: Session = Depends(get_session),
+):
+    data = payload.model_dump(exclude_unset=True)
+    if "account" in data:
+        # принимаем как поддомен, так и полный домен — храним поддомен
+        acc = (data["account"] or "").strip()
+        acc = acc.replace("https://", "").replace("http://", "").strip("/")
+        acc = acc.split(".getcourse")[0]
+        set_setting(session, "gc_account", acc)
+    if "api_key" in data and data["api_key"] is not None:
+        key = data["api_key"].strip()
+        if key:   # пустую строку игнорируем, чтобы случайно не стереть ключ
+            set_setting(session, "gc_api_key", key)
+    if "poll_hours" in data and data["poll_hours"] is not None:
+        set_setting(session, "gc_poll_hours", str(max(0.5, float(data["poll_hours"]))))
+    session.commit()
+    return _getcourse_out(session)
+
+
+@app.patch("/admin/getcourse/groups/{group_id}", response_model=GcGroupOut)
+def update_gc_group(
+    group_id: int,
+    payload: GcGroupUpdate,
+    _: User = Depends(require_admin),
+    session: Session = Depends(get_session),
+):
+    group = session.get(GcGroup, group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="Группа не найдена")
+    group.counts = payload.counts
+    session.add(group)
+    session.commit()
+    session.refresh(group)
+    return GcGroupOut(id=group.id, gc_id=group.gc_id, name=group.name,
+                      lesson_number=group.lesson_number, counts=group.counts)
+
+
+@app.post("/admin/getcourse/sync", response_model=SyncOut)
+async def sync_getcourse_now(
+    background: BackgroundTasks,
+    _: User = Depends(require_admin),
+    session: Session = Depends(get_session),
+):
+    account = get_setting(session, "gc_account").strip()
+    api_key = get_setting(session, "gc_api_key").strip()
+    if not account or not api_key:
+        raise HTTPException(status_code=400,
+                            detail="Сначала укажите домен и ключ GetCourse")
+    background.add_task(sync_getcourse, session_factory)
+    return SyncOut(started=True, detail="Синхронизация запущена в фоне")

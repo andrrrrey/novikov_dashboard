@@ -18,14 +18,19 @@ export default function Dashboard() {
   if (error) return <Shell logout={logout}><div className="panel dash-msg">{error}</div></Shell>;
   if (!data) return <Shell logout={logout}><div className="panel dash-msg muted">Загрузка…</div></Shell>;
 
+  const promo = <Promo data={data} />;
+
   if (!data.quiz_taken) {
     return (
       <Shell logout={logout}>
-        <div className="panel dash-empty">
-          <h2>Пройдите короткий тест</h2>
-          <p className="muted">3 вопроса, меньше минуты. По ответам мы определим ваше узкое место
-            и покажем персональную траекторию.</p>
-          <button className="btn btn-primary" onClick={() => navigate("/quiz")}>Пройти тест</button>
+        <div className="dash-grid">
+          <div className="panel dash-empty">
+            <h2>Пройдите короткий тест</h2>
+            <p className="muted">3 вопроса, меньше минуты. По ответам мы определим ваше узкое место
+              и покажем персональную рекомендацию.</p>
+            <button className="btn btn-primary" onClick={() => navigate("/quiz")}>Пройти тест</button>
+          </div>
+          {promo}
         </div>
       </Shell>
     );
@@ -46,40 +51,40 @@ export default function Dashboard() {
             bottleneck={{ aspect: data.bottleneck_aspect, level: data.bottleneck_level }}
             hint={data.hint}
             balanced={data.balanced}
+            overallLevel={data.overall_level}
           />
           <div className="dash-retake">
             <button className="btn" onClick={() => navigate("/quiz")}>Пройти тест заново</button>
           </div>
         </section>
 
-        <section className="dash-trajectory">
-          <div className="dash-tr-head">
-            <h2>Моя траектория</h2>
-            <p className="muted">Три шага под ваше узкое место. Нажмите карточку, чтобы открыть материал.</p>
-          </div>
-          <div className="dash-cards">
-            {data.cards.map((card) => (
-              <a key={card.position}
-                 className={`panel dash-card ${card.getcourse_url ? "" : "is-locked"}`}
-                 href={card.getcourse_url || undefined}
-                 target={card.getcourse_url ? "_blank" : undefined}
-                 rel="noreferrer">
-                {card.cover && (
-                  <span className="dash-card-cover">
-                    <img src={card.cover} alt="" loading="lazy" />
-                  </span>
-                )}
-                <span className="dash-card-num">{card.position}</span>
-                <span className="dash-card-title">{card.title}</span>
-                <span className="dash-card-cta">
-                  {card.getcourse_url ? "Открыть материал →" : "Ссылка появится позже"}
-                </span>
-              </a>
-            ))}
-          </div>
-        </section>
+        {promo}
       </div>
     </Shell>
+  );
+}
+
+// Плашка «Повышайте свой уровень». Картинку и ссылку задаёт админ.
+function Promo({ data }) {
+  const title = data.promo_title || "Повышайте свой уровень";
+  const link = data.promo_link || undefined;
+  return (
+    <a className={`panel dash-promo ${link ? "" : "is-locked"}`}
+       href={link}
+       target={link ? "_blank" : undefined}
+       rel="noreferrer">
+      {data.promo_image && (
+        <span className="dash-promo-cover">
+          <img src={data.promo_image} alt="" loading="lazy" />
+        </span>
+      )}
+      <span className="dash-promo-body">
+        <span className="dash-promo-title">{title}</span>
+        <span className="dash-promo-cta">
+          {link ? "Перейти →" : "Ссылка появится позже"}
+        </span>
+      </span>
+    </a>
   );
 }
 

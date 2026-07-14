@@ -65,4 +65,15 @@ export const api = {
     fd.append("file", file);
     return request("/admin/upload", { method: "POST", formData: fd });
   },
+
+  // Плашка «Повышайте свой уровень»
+  getPromo: () => request("/admin/promo"),
+  updatePromo: (patch) => request("/admin/promo", { method: "PATCH", body: patch }),
+
+  // GetCourse
+  getGetcourse: () => request("/admin/getcourse"),
+  updateGetcourse: (patch) => request("/admin/getcourse", { method: "PATCH", body: patch }),
+  updateGcGroup: (id, counts) =>
+    request(`/admin/getcourse/groups/${id}`, { method: "PATCH", body: { counts } }),
+  syncGetcourse: () => request("/admin/getcourse/sync", { method: "POST" }),
 };
