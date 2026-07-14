@@ -10,12 +10,14 @@ import pytest
 from sqlmodel import Session, select
 
 import app.database as database
+import app.getcourse as getcourse
 from app.config import ADMIN_EMAIL, ADMIN_PASSWORD
 from app.getcourse import (
-    GetCourseClient, GetCourseError, parse_lesson_number, _extract_email,
+    GetCourseClient, GetCourseError, parse_lesson_number, sync_getcourse,
+    _extract_email, _is_busy_error,
 )
 from app.models import GcGroup, LessonView, User
-from app.settings import compute_overall_level
+from app.settings import compute_overall_level, set_setting
 
 # engine/app/client — из conftest.py. Прямой доступ к БД через database.engine.
 test_engine = database.engine
@@ -99,6 +101,58 @@ def test_api_error_surfaces():
 
     with pytest.raises(GetCourseError, match="Неавторизованное"):
         asyncio.run(run())
+
+
+def test_is_busy_error():
+    assert _is_busy_error(GetCourseError("Уже запущен один экспорт, попробуйте позднее"))
+    assert _is_busy_error(GetCourseError("Export already running"))
+    assert not _is_busy_error(GetCourseError("Неавторизованное API-обращение"))
+
+
+def test_sync_recovers_from_busy(monkeypatch):
+    # Первый старт экспорта отклоняется («уже запущен»), второй — успешен: синк должен дождаться.
+    with Session(test_engine) as s:
+        _clear(s)
+        s.add(User(email="busyrez@x.ru", password_hash="x"))
+        s.commit()
+        set_setting(s, "gc_account", "novikovclub")
+        set_setting(s, "gc_api_key", "K")
+        s.commit()
+
+    calls = {"start": 0}
+
+    def handler(request):
+        u = str(request.url)
+        if "/users" in u:
+            calls["start"] += 1
+            if calls["start"] == 1:
+                return httpx.Response(200, json={"success": False, "error": True,
+                    "error_message": "Уже запущен один экспорт, попробуйте позднее", "info": []})
+            return httpx.Response(200, json={"success": True, "info": {"export_id": 777}})
+        if "/exports/777" in u:
+            return httpx.Response(200, json={"success": True, "info": {
+                "status": "finished", "fields": ["Email"], "items": [["busyrez@x.ru"]]}})
+        return httpx.Response(200, json={"success": True, "info": [
+            {"id": 4883599, "name": "Урок 01 просмотрен", "last_added_at": "2026-07-14 12:16:21"}]})
+
+    import functools
+    monkeypatch.setattr(getcourse, "BETWEEN_REQUESTS_DELAY", 0)
+    monkeypatch.setattr(getcourse, "EXPORT_POLL_DELAY", 0)
+    monkeypatch.setattr(getcourse, "START_RETRY_DELAY", 0)
+    monkeypatch.setattr(httpx, "AsyncClient",
+                        functools.partial(httpx.AsyncClient, transport=httpx.MockTransport(handler)))
+
+    status = asyncio.run(sync_getcourse(database.session_factory))
+    assert "обновлено за цикл 1" in status
+    assert calls["start"] == 2   # первый занят, второй успешен
+
+    with Session(test_engine) as s:
+        assert compute_overall_level(s, "busyrez@x.ru") == (1, 1, 10)
+        _clear(s)
+        # вернуть настройки к «пусто», чтобы не влиять на другие тесты
+        set_setting(s, "gc_account", "")
+        set_setting(s, "gc_api_key", "")
+        s.commit()
 
 
 # --------------------------------------------------------- расчёт уровня 1..10
