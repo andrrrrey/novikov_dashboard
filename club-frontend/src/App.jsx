@@ -13,8 +13,9 @@ export default function App() {
       <BrowserRouter basename="/club">
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/" element={<ProtectedRoute><DashboardV2 /></ProtectedRoute>} />
           <Route path="/v2" element={<ProtectedRoute><DashboardV2 /></ProtectedRoute>} />
+          <Route path="/old" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/quiz" element={<ProtectedRoute><Quiz /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute adminOnly><Admin /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
