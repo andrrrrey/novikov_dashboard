@@ -56,6 +56,7 @@ export default function DashboardV2() {
   const cleanHint = (data.hint || "").replace(/^Узкое место:[^.]*\.\s*/, "");
   const exp = data.experience;
   const kn = data.knowledge;
+  const expPct = exp && exp.total > 0 ? Math.min(100, Math.round((exp.done / exp.total) * 100)) : 0;
 
   return (
     <Shell logout={logout}>
@@ -68,10 +69,12 @@ export default function DashboardV2() {
         <section className="ck-stats">
           {exp && (
             <div className="ck-exp-hero">
-              <span className="ck-exp-badge"><ExpIcon color={C_EXP} size={26} /></span>
+              <RingLevel level={exp.level} pct={expPct} />
               <div className="ck-exp-main">
-                <span className="ck-exp-level">{exp.level}</span>
-                <span className="ck-exp-kicker">Уровень опыта</span>
+                <span className="ck-exp-kicker">
+                  <ExpIcon color={C_EXP} size={15} /> Уровень опыта
+                </span>
+                <span className="ck-exp-prog">{exp.done}/{exp.total} опыта</span>
               </div>
               <span className="ck-exp-days">
                 <b>{exp.days_on_level} {pluralDays(exp.days_on_level)}</b>
@@ -85,7 +88,7 @@ export default function DashboardV2() {
               <span className="ck-mini-ic"><KnowledgeIcon color={C_KNOW} size={20} /></span>
               <span className="ck-mini-lbl">Знания</span>
               <span className="ck-mini-val" style={{ color: C_KNOW }}>
-                {kn ? kn.done : 0}<span className="ck-mini-sub">/{kn ? kn.total : 0}</span>
+                {kn ? kn.done : 0}
               </span>
             </div>
             <div className="ck-mini" style={{ "--ic": C_INFL }}>
@@ -121,6 +124,23 @@ export default function DashboardV2() {
         </div>
       </div>
     </Shell>
+  );
+}
+
+// Кольцо-прогресс с уровнем опыта в центре.
+function RingLevel({ level, pct }) {
+  const R = 24;
+  const C = 2 * Math.PI * R;
+  const offset = C * (1 - pct / 100);
+  return (
+    <div className="ck-exp-ring">
+      <svg viewBox="0 0 56 56" className="ck-exp-ring-svg" aria-hidden="true">
+        <circle className="ck-exp-ring-track" cx="28" cy="28" r={R} />
+        <circle className="ck-exp-ring-prog" cx="28" cy="28" r={R}
+                strokeDasharray={C} strokeDashoffset={offset} />
+      </svg>
+      <span className="ck-exp-ring-num">{level}</span>
+    </div>
   );
 }
 
