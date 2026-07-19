@@ -1,0 +1,49 @@
+/* Компактная «сцена» песочных часов для дашборда V2 (итерация 2).
+   Слева — подписи аспектов (единственное место уровней), справа от них — часы.
+   Правой колонки цифр-кружков больше нет. Подписи позиционируются в % от высоты
+   сцены, которую задаёт сам SVG, — поэтому всё согласовано по высоте. */
+
+.hgv2-stage {
+  position: relative;
+  width: 100%;
+  max-width: 384px;
+  margin: 0 auto;
+  min-height: 150px;
+}
+
+.hgv2-col { position: absolute; top: 0; height: 100%; }
+.hgv2-col-left { left: 0; width: 34%; }
+
+.hgv2-aspect {
+  position: absolute;
+  left: 0;
+  transform: translateY(-50%);
+  display: flex; flex-direction: column; gap: 5px;
+}
+.hgv2-aspect-name { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; }
+.hgv2-aspect-lvl {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  padding: 3px 9px;
+  border-radius: 7px;
+  width: fit-content;
+}
+
+/* Часы смещены вправо от подписей; ограничиваем размер, чтобы были компактными. */
+.hgv2-svg {
+  width: 56%;
+  min-width: 136px;
+  max-width: 150px;
+  margin: 0 0 0 auto;
+  display: block;
+}
+
+@media (max-width: 460px) {
+  .hgv2-stage { max-width: 360px; min-height: 190px; }
+  .hgv2-col-left { width: 36%; }
+  .hgv2-svg { width: 60%; min-width: 132px; max-width: 168px; }
+  .hgv2-aspect-name { font-size: 13px; }
+  .hgv2-aspect-lvl { font-size: 11px; padding: 2px 8px; }
+}
