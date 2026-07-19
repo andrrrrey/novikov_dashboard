@@ -56,43 +56,44 @@ export default function DashboardV2() {
   const cleanHint = (data.hint || "").replace(/^Узкое место:[^.]*\.\s*/, "");
   const exp = data.experience;
   const kn = data.knowledge;
-  const expPct = exp && exp.total > 0 ? Math.round((exp.done / exp.total) * 100) : 0;
 
   return (
     <Shell logout={logout}>
       <div className="ck">
         <div className="ck-head">
           <h1 className="ck-title">Состояние бизнеса</h1>
-          <span className="ck-status"><span className="ck-status-dot" /> системы в норме</span>
         </div>
 
         {/* Верхняя панель показателей — над часами */}
         <section className="ck-stats">
-          <div className="ck-statrow">
-            <Stat icon={<ExpIcon color={C_EXP} size={22} />} color={C_EXP}
-                  value={exp ? exp.level : 0} label="Уровень" />
-            <span className="ck-stat-div" />
-            <Stat icon={<KnowledgeIcon color={C_KNOW} size={22} />} color={C_KNOW}
-                  value={kn ? kn.done : 0} sub={kn ? `/ ${kn.total}` : null} label="Знания" />
-            <span className="ck-stat-div" />
-            <Stat icon={<InfluenceIcon color={C_INFL} size={22} />} color={C_INFL}
-                  value={data.influence ?? 0} label="Влияние" />
-          </div>
-
           {exp && (
-            <div className="ck-xp">
-              <div className="ck-xp-bar">
-                <span className="ck-xp-tag">Опыт</span>
-                <div className="ck-xp-track">
-                  <div className="ck-xp-fill" style={{ width: `${expPct}%` }} />
-                </div>
-                <span className="ck-xp-num">{exp.done}/{exp.total}</span>
+            <div className="ck-exp-hero">
+              <span className="ck-exp-badge"><ExpIcon color={C_EXP} size={26} /></span>
+              <div className="ck-exp-main">
+                <span className="ck-exp-level">{exp.level}</span>
+                <span className="ck-exp-kicker">Уровень опыта</span>
               </div>
-              <div className="ck-xp-days">
-                {exp.days_on_level} {pluralDays(exp.days_on_level)} на этом уровне
-              </div>
+              <span className="ck-exp-days">
+                <b>{exp.days_on_level} {pluralDays(exp.days_on_level)}</b>
+                на этом уровне
+              </span>
             </div>
           )}
+
+          <div className="ck-mini-row">
+            <div className="ck-mini" style={{ "--ic": C_KNOW }}>
+              <span className="ck-mini-ic"><KnowledgeIcon color={C_KNOW} size={20} /></span>
+              <span className="ck-mini-lbl">Знания</span>
+              <span className="ck-mini-val" style={{ color: C_KNOW }}>
+                {kn ? kn.done : 0}<span className="ck-mini-sub">/{kn ? kn.total : 0}</span>
+              </span>
+            </div>
+            <div className="ck-mini" style={{ "--ic": C_INFL }}>
+              <span className="ck-mini-ic"><InfluenceIcon color={C_INFL} size={20} /></span>
+              <span className="ck-mini-lbl">Влияние</span>
+              <span className="ck-mini-val" style={{ color: C_INFL }}>{data.influence ?? 0}</span>
+            </div>
+          </div>
         </section>
 
         {/* Часы: левые подписи аспектов (единственное место уровней) + узкое место */}
@@ -120,18 +121,6 @@ export default function DashboardV2() {
         </div>
       </div>
     </Shell>
-  );
-}
-
-function Stat({ icon, color, value, sub, label }) {
-  return (
-    <div className="ck-stat">
-      <span className="ck-stat-ic" style={{ color, "--ic": color }}>{icon}</span>
-      <span className="ck-stat-val" style={{ color }}>
-        {value}{sub && <span className="ck-stat-sub">{sub}</span>}
-      </span>
-      <span className="ck-stat-lbl">{label}</span>
-    </div>
   );
 }
 
