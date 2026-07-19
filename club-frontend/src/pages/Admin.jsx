@@ -306,8 +306,14 @@ function HintEditor({ hint, onError }) {
 function buildPromoLinks(p) {
   const out = {};
   for (const [aspect] of PROGRESS_CATS) {
+    // уровни = из конфигурации «Опыт» + те, для которых уже сохранены ссылки
+    const levels = new Set([
+      ...(p.levels?.[aspect] || [1]).map(Number),
+      ...Object.keys(p.links?.[aspect] || {}).map(Number),
+    ]);
+    if (levels.size === 0) levels.add(1);
     out[aspect] = {};
-    for (const lvl of (p.levels?.[aspect] || [1])) {
+    for (const lvl of [...levels].sort((a, b) => a - b)) {
       out[aspect][lvl] = p.links?.[aspect]?.[lvl] ?? "";
     }
   }
@@ -338,6 +344,15 @@ function PromoBlock({ onError }) {
     setSaved(false);
   }
 
+  function addLevel(aspect) {
+    setLinks((prev) => {
+      const lv = prev[aspect] || {};
+      const next = Math.max(0, ...Object.keys(lv).map(Number)) + 1;
+      return { ...prev, [aspect]: { ...lv, [next]: "" } };
+    });
+    setSaved(false);
+  }
+
   async function save() {
     setSaving(true);
     try {
@@ -353,7 +368,7 @@ function PromoBlock({ onError }) {
       <p className="muted admin-note">
         Резиденту показывается баннер без картинки. Задайте ссылку для каждого уровня направлений —
         на дашборде откроется ссылка узкого места (самого слабого направления) на его текущем уровне.
-        Уровни берутся из блока «Опыт и Знания».
+        Уровни подтягиваются из блока «Опыт и Знания»; можно добавить вручную кнопкой «+ уровень».
       </p>
 
       <label className="label">Заголовок баннера</label>
@@ -365,7 +380,7 @@ function PromoBlock({ onError }) {
           <div className="promo-aspect" key={aspect}>
             <div className="promo-aspect-h">{label}</div>
             <div className="promo-levels">
-              {(promo.levels?.[aspect] || [1]).map((lvl) => (
+              {Object.keys(links[aspect] || {}).map(Number).sort((a, b) => a - b).map((lvl) => (
                 <label className="promo-lvl" key={lvl}>
                   <span className="promo-lvl-tag">Уровень {lvl}</span>
                   <input className="input" type="url" placeholder="https:// ссылка"
@@ -373,6 +388,8 @@ function PromoBlock({ onError }) {
                          onChange={(e) => setLink(aspect, lvl, e.target.value)} />
                 </label>
               ))}
+              <button className="btn admin-mini promo-add" type="button"
+                      onClick={() => addLevel(aspect)}>+ уровень</button>
             </div>
           </div>
         ))}

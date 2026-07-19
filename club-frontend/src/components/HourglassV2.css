@@ -47,3 +47,13 @@
   .hgv2-aspect-name { font-size: 13px; }
   .hgv2-aspect-lvl { font-size: 11px; padding: 2px 8px; }
 }
+
+/* На больших экранах (ПК с достаточной высотой) увеличиваем часы, чтобы подписи
+   аспектов не прижимались друг к другу. Телефоны (узкие) и низкие ноутбуки —
+   остаются компактными и умещаются на один экран. */
+@media (min-width: 620px) and (min-height: 810px) {
+  .hgv2-stage { min-height: 240px; }
+  .hgv2-svg { width: 64%; min-width: 176px; max-width: 198px; }
+  .hgv2-aspect { gap: 7px; }
+  .hgv2-aspect-lvl { padding: 4px 10px; }
+}
