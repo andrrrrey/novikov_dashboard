@@ -84,6 +84,19 @@ export function SalesIcon(props) {
   );
 }
 
+// Повышение уровня — ракета (яркий CTA-бейдж).
+export function RocketIcon(props) {
+  const c = props.color || "currentColor";
+  return (
+    <Svg {...props}>
+      <path d="M12 2.4c2.8 2.4 4.1 5.7 4.1 9 0 1.7-.6 2.6-1.3 3.4H9.2C8.5 14 7.9 13.1 7.9 11.4c0-3.3 1.3-6.6 4.1-9Z" fill={c} fillOpacity="0.2" />
+      <circle cx="12" cy="9" r="1.7" />
+      <path d="M8.5 12.6 5.8 15.4l3.3-.7M15.5 12.6l2.7 2.8-3.3-.7" />
+      <path d="M10.3 15.5 12 19.2l1.7-3.7" />
+    </Svg>
+  );
+}
+
 // Рекомендация — лампочка (в тон зелёного).
 export function BulbIcon(props) {
   return (

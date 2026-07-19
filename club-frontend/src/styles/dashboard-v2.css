@@ -18,8 +18,8 @@
   max-width: 480px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 15px 16px 15px;
+  gap: 9px;
+  padding: 14px 16px 14px;
   border-radius: 22px;
   border: 1px solid var(--border-strong);
   background:
@@ -46,7 +46,7 @@
 .ck-title { font-size: 21px; font-weight: 800; letter-spacing: -0.02em; margin: 0; }
 
 /* --- Верхняя панель показателей --- */
-.ck-stats { display: flex; flex-direction: column; gap: 10px; }
+.ck-stats { display: flex; flex-direction: column; gap: 9px; }
 
 /* Опыт — выделенный блок-герой */
 .ck-exp-hero {
@@ -96,7 +96,6 @@
 }
 .ck-exp-kicker svg { flex-shrink: 0; }
 .ck-exp-kicker svg { animation: ckBreath 3.8s ease-in-out infinite; }
-.ck-exp-prog { font-size: 13px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
 .ck-exp-days {
   margin-left: auto; text-align: right;
   font-size: 13px; color: var(--text-dim); line-height: 1.3;
@@ -160,17 +159,36 @@
 /* --- Действия --- */
 .ck-actions { display: flex; flex-direction: column; gap: 8px; }
 .ck-retake { width: 100%; height: 42px; }
-.ck-promo {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 12px 15px; border-radius: 14px;
-  border: 1px solid var(--border); background: rgba(255, 255, 255, 0.02);
-  transition: border-color 0.15s ease, background 0.15s ease;
+
+/* --- Бейдж «Повышайте свой уровень» (под плашками, над часами) --- */
+.ck-levelup {
+  position: relative; overflow: hidden;
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; border-radius: 14px;
+  background: linear-gradient(118deg, #7ce862, #4fbf3a);
+  color: #04140a; text-decoration: none;
+  box-shadow: 0 10px 26px rgba(108, 222, 82, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  transition: transform 0.1s ease, box-shadow 0.15s ease, filter 0.15s ease;
 }
-.ck-promo:hover { border-color: var(--border-strong); background: rgba(255, 255, 255, 0.04); }
-.ck-promo.is-locked { opacity: 0.7; cursor: default; }
-.ck-promo.is-locked:hover { border-color: var(--border); background: rgba(255, 255, 255, 0.02); }
-.ck-promo-title { font-size: 15px; font-weight: 800; letter-spacing: -0.01em; }
-.ck-promo-cta { font-size: 13px; color: var(--text-dim); font-weight: 600; white-space: nowrap; }
+.ck-levelup:hover { transform: translateY(-1px); filter: brightness(1.05); box-shadow: 0 13px 32px rgba(108, 222, 82, 0.42); }
+.ck-levelup:active { transform: scale(0.99); }
+.ck-levelup.is-static { cursor: default; }
+.ck-levelup.is-static:hover { transform: none; filter: none; box-shadow: 0 10px 26px rgba(108, 222, 82, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.28); }
+.ck-levelup-ic {
+  flex-shrink: 0; display: grid; place-items: center;
+  width: 34px; height: 34px; border-radius: 11px; color: #3fb42f;
+  background: #ffffff;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.5);
+}
+.ck-levelup-title { font-size: 15px; font-weight: 800; letter-spacing: -0.01em; }
+.ck-levelup-arrow { margin-left: auto; font-size: 19px; font-weight: 800; }
+/* Переливающийся блик по бейджу */
+.ck-levelup::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 42%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.42) 50%, transparent);
+  transform: translateX(-160%) skewX(-14deg);
+  animation: ckSheen 5.5s ease-in-out infinite; pointer-events: none;
+}
 
 /* --- Телефон --- */
 @media (max-width: 460px) {
