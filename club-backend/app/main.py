@@ -8,6 +8,7 @@ import json
 import os
 import uuid
 from contextlib import asynccontextmanager
+from typing import Optional
 
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -150,28 +151,44 @@ def dashboard(
     return _build_dashboard(user, session)
 
 
-def _promo(session: Session) -> dict:
-    """Поля плашки «Повышайте свой уровень» (из настроек админки)."""
-    return {
-        "promo_title": get_setting(session, "promo_title") or "Повышайте свой уровень",
-        "promo_image": get_setting(session, "promo_image") or None,
-        "promo_link": get_setting(session, "promo_link") or None,
-    }
+def _promo_title(session: Session) -> str:
+    return get_setting(session, "promo_title") or "Повышайте свой уровень"
 
 
-def _progress_fields(user: User, session: Session) -> dict:
-    """Показатели прогресса для дашборда (опыт, категории, знания, влияние)."""
-    p = compute_user_progress(session, user)
-    return {
-        "experience": ExperienceOut(**p["experience"]),
-        "categories": [CategoryProgress(**c) for c in p["categories"]],
-        "knowledge": KnowledgeOut(**p["knowledge"]),
-        "influence": p["influence"],
-    }
+def _promo_links(session: Session) -> dict[str, dict[str, str]]:
+    """Ссылки баннера: {aspect: {levelStr: url}} из настройки promo_links (JSON)."""
+    raw = get_setting(session, "promo_links") or ""
+    try:
+        data = json.loads(raw) if raw else {}
+    except (ValueError, TypeError):
+        data = {}
+    out: dict[str, dict[str, str]] = {}
+    for cat in CATEGORIES:
+        levels = data.get(cat) or {}
+        out[cat] = {
+            str(lvl): str(url).strip()
+            for lvl, url in levels.items() if str(url).strip()
+        }
+    return out
+
+
+def _promo_levels(session: Session) -> dict[str, list[int]]:
+    """Настроенные уровни по аспектам (из групп опыта); минимум [1]."""
+    found: dict[str, set[int]] = {c: set() for c in CATEGORIES}
+    for a in session.exec(select(GcAssignment).where(GcAssignment.track == "exp")).all():
+        if a.category in found and a.level is not None:
+            found[a.category].add(a.level)
+    return {c: (sorted(found[c]) or [1]) for c in CATEGORIES}
+
+
+def _resolve_promo_link(session: Session, aspect: str, level: int) -> Optional[str]:
+    """Ссылка баннера для узкого места (минимального аспекта) на его уровне."""
+    links = _promo_links(session)
+    return (links.get(aspect) or {}).get(str(level)) or None
 
 
 def _build_dashboard(user: User, session: Session) -> DashboardOut:
-    common = _promo(session)
+    title = _promo_title(session)
 
     result = session.exec(
         select(QuizResult).where(QuizResult.user_id == user.id)
@@ -179,9 +196,18 @@ def _build_dashboard(user: User, session: Session) -> DashboardOut:
     if result is None:
         # Влияние показываем и без теста (его ставит админ), бары — после теста.
         stats = session.get(UserStats, user.id)
-        return DashboardOut(quiz_taken=False, influence=stats.influence if stats else 0, **common)
+        return DashboardOut(
+            quiz_taken=False, influence=stats.influence if stats else 0,
+            promo_title=title, promo_image=None, promo_link=None,
+        )
 
-    common.update(_progress_fields(user, session))
+    p = compute_user_progress(session, user)
+    cat_levels = {c["aspect"]: c["level"] for c in p["categories"]}
+
+    # Узкое место = минимальный аспект. Ссылка баннера — на его текущем уровне.
+    bottleneck_aspect = result.bottleneck_aspect
+    bottleneck_current_level = cat_levels.get(bottleneck_aspect, result.bottleneck_level)
+    promo_link = _resolve_promo_link(session, bottleneck_aspect, bottleneck_current_level)
 
     hint = session.exec(
         select(TrajectoryHint).where(
@@ -214,7 +240,11 @@ def _build_dashboard(user: User, session: Session) -> DashboardOut:
         hint=hint.hint_text if hint else None,
         cards=[CardOut(position=c.position, title=c.title,
                        getcourse_url=c.getcourse_url, cover=c.cover) for c in cards],
-        **common,
+        experience=ExperienceOut(**p["experience"]),
+        categories=[CategoryProgress(**c) for c in p["categories"]],
+        knowledge=KnowledgeOut(**p["knowledge"]),
+        influence=p["influence"],
+        promo_title=title, promo_image=None, promo_link=promo_link,
     )
 
 
@@ -404,14 +434,18 @@ async def upload_cover(
     return UploadOut(url=f"/club/api/uploads/{name}")
 
 
-# ------------------------------------------- Админка: плашка «Повышайте свой уровень»
+# ------------------------------------------- Админка: баннер «Повышайте свой уровень»
+def _promo_out(session: Session) -> PromoOut:
+    return PromoOut(
+        title=_promo_title(session),
+        links=_promo_links(session),
+        levels=_promo_levels(session),
+    )
+
+
 @app.get("/admin/promo", response_model=PromoOut)
 def get_promo(_: User = Depends(require_admin), session: Session = Depends(get_session)):
-    return PromoOut(
-        title=get_setting(session, "promo_title") or "Повышайте свой уровень",
-        image=get_setting(session, "promo_image") or None,
-        link=get_setting(session, "promo_link") or None,
-    )
+    return _promo_out(session)
 
 
 @app.patch("/admin/promo", response_model=PromoOut)
@@ -422,17 +456,19 @@ def update_promo(
 ):
     data = payload.model_dump(exclude_unset=True)
     if "title" in data:
-        set_setting(session, "promo_title", (data["title"] or "").strip() or "Повышайте свой уровень")
-    if "image" in data:
-        set_setting(session, "promo_image", (data["image"] or "").strip())
-    if "link" in data:
-        set_setting(session, "promo_link", (data["link"] or "").strip())
+        set_setting(session, "promo_title",
+                    (data["title"] or "").strip() or "Повышайте свой уровень")
+    if "links" in data and data["links"] is not None:
+        clean: dict[str, dict[str, str]] = {}
+        for cat in CATEGORIES:
+            levels = data["links"].get(cat) or {}
+            clean[cat] = {
+                str(lvl): (url or "").strip()
+                for lvl, url in levels.items() if (url or "").strip()
+            }
+        set_setting(session, "promo_links", json.dumps(clean, ensure_ascii=False))
     session.commit()
-    return PromoOut(
-        title=get_setting(session, "promo_title") or "Повышайте свой уровень",
-        image=get_setting(session, "promo_image") or None,
-        link=get_setting(session, "promo_link") or None,
-    )
+    return _promo_out(session)
 
 
 # ----------------------------------------------------- Админка: настройки GetCourse

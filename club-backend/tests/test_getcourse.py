@@ -168,23 +168,35 @@ def test_sync_stores_all_groups_and_recovers_from_busy(monkeypatch):
 # ------------------------------------------------------------- админ-эндпоинты
 def test_promo_endpoint(client):
     h = _admin(client)
-    # дефолт
+    # дефолт: заголовок есть, ссылки/уровни присутствуют структурно
     r = client.get("/admin/promo", headers=h)
     assert r.status_code == 200
-    assert r.json()["title"] == "Повышайте свой уровень"
+    body = r.json()
+    assert body["title"] == "Повышайте свой уровень"
+    assert "links" in body and "levels" in body
+    assert set(body["levels"].keys()) == {"management", "sales", "marketing"}
 
-    r = client.patch("/admin/promo", headers=h,
-                     json={"image": "/club/api/uploads/x.png", "link": "https://gc.ru/course"})
+    # задаём ссылки по паре (аспект, уровень)
+    r = client.patch("/admin/promo", headers=h, json={
+        "title": "Повышайте свой уровень",
+        "links": {
+            "marketing": {"1": "https://gc.ru/m1"},
+            "sales": {"2": "https://gc.ru/s2"},
+        },
+    })
     assert r.status_code == 200
     body = r.json()
-    assert body["image"] == "/club/api/uploads/x.png"
-    assert body["link"] == "https://gc.ru/course"
+    assert body["links"]["marketing"]["1"] == "https://gc.ru/m1"
 
-    # плашка видна на дашборде резидента
+    # резидент проходит тест: M=1,S=2,Mg=1 -> узкое место Маркетинг, ур.1 -> ссылка m1
     client.post("/admin/users", headers=h, json={"email": "promo@x.ru", "password": "pw123456"})
     tok = client.post("/auth/login", data={"username": "promo@x.ru", "password": "pw123456"}).json()
-    dash = client.get("/me/dashboard", headers={"Authorization": f"Bearer {tok['access_token']}"})
-    assert dash.json()["promo_link"] == "https://gc.ru/course"
+    uh = {"Authorization": f"Bearer {tok['access_token']}"}
+    client.post("/quiz/submit", json={"answers": {"M": 1, "S": 3, "Mg": 1}}, headers=uh)
+    dash = client.get("/me/dashboard", headers=uh).json()
+    assert dash["bottleneck_aspect"] == "marketing"
+    assert dash["promo_link"] == "https://gc.ru/m1"
+    assert dash["promo_image"] is None
 
 
 def test_getcourse_endpoint_masks_key(client):

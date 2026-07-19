@@ -4,6 +4,15 @@ import { useAuth } from "../auth/AuthContext.jsx";
 
 const ASPECT_LABEL = { marketing: "Маркетинг", sales: "Продажи", management: "Менеджмент" };
 
+// Склонение: 1 группа, 2 группы, 5 групп.
+function plGroups(n) {
+  const a = Math.abs(n) % 100, d = a % 10;
+  if (a > 10 && a < 20) return "групп";
+  if (d === 1) return "группа";
+  if (d >= 2 && d <= 4) return "группы";
+  return "групп";
+}
+
 export default function Admin() {
   const { logout } = useAuth();
   const [users, setUsers] = useState([]);
@@ -293,79 +302,86 @@ function HintEditor({ hint, onError }) {
   );
 }
 
-// --- Плашка «Повышайте свой уровень»: картинка + ссылка + заголовок ---
+// --- Баннер «Повышайте свой уровень»: заголовок + ссылки по аспект+уровень ---
+function buildPromoLinks(p) {
+  const out = {};
+  for (const [aspect] of PROGRESS_CATS) {
+    out[aspect] = {};
+    for (const lvl of (p.levels?.[aspect] || [1])) {
+      out[aspect][lvl] = p.links?.[aspect]?.[lvl] ?? "";
+    }
+  }
+  return out;
+}
+
 function PromoBlock({ onError }) {
   const [promo, setPromo] = useState(null);
   const [title, setTitle] = useState("");
-  const [link, setLink] = useState("");
-  const [image, setImage] = useState("");
-  const [uploading, setUploading] = useState(false);
+  const [links, setLinks] = useState({});   // {aspect: {level: url}}
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     api.getPromo().then((p) => {
-      setPromo(p); setTitle(p.title || ""); setLink(p.link || ""); setImage(p.image || "");
+      setPromo(p); setTitle(p.title || ""); setLinks(buildPromoLinks(p));
     }).catch((e) => onError(e.message));
   }, []);
 
   if (!promo) return null;
-  const dirty = title !== (promo.title || "") || link !== (promo.link || "") || image !== (promo.image || "");
 
-  async function onFile(e) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    setUploading(true); setSaved(false);
-    try {
-      const { url } = await api.uploadImage(file);
-      setImage(url);
-    } catch (err) { onError(err.message); } finally { setUploading(false); }
+  const dirty =
+    title !== (promo.title || "") ||
+    JSON.stringify(links) !== JSON.stringify(buildPromoLinks(promo));
+
+  function setLink(aspect, lvl, val) {
+    setLinks((prev) => ({ ...prev, [aspect]: { ...prev[aspect], [lvl]: val } }));
+    setSaved(false);
   }
 
   async function save() {
     setSaving(true);
     try {
-      const updated = await api.updatePromo({ title, link, image });
-      setPromo(updated);
-      setTitle(updated.title || ""); setLink(updated.link || ""); setImage(updated.image || "");
+      const updated = await api.updatePromo({ title, links });
+      setPromo(updated); setTitle(updated.title || ""); setLinks(buildPromoLinks(updated));
       setSaved(true);
     } catch (err) { onError(err.message); } finally { setSaving(false); }
   }
 
   return (
     <div className="panel admin-block">
-      <h2 className="admin-h2">Плашка «Повышайте свой уровень»</h2>
+      <h2 className="admin-h2">Баннер «Повышайте свой уровень»</h2>
       <p className="muted admin-note">
-        Показывается резиденту на дашборде вместо блока траектории. Задайте заголовок, ссылку и картинку
-        (PNG/JPEG/WEBP, до 5 МБ).
+        Резиденту показывается баннер без картинки. Задайте ссылку для каждого уровня направлений —
+        на дашборде откроется ссылка узкого места (самого слабого направления) на его текущем уровне.
+        Уровни берутся из блока «Опыт и Знания».
       </p>
-      <div className="admin-card">
-        <div className="admin-card-cover">
-          {image ? <img src={image} alt="" /> : <span className="admin-card-cover-empty">нет картинки</span>}
-        </div>
-        <div className="admin-card-body">
-          <input className="input" type="text" placeholder="Заголовок плашки"
-                 value={title} onChange={(e) => { setTitle(e.target.value); setSaved(false); }} />
-          <input className="input admin-card-url" type="url" placeholder="https:// ссылка"
-                 value={link} onChange={(e) => { setLink(e.target.value); setSaved(false); }} />
-          <div className="admin-card-actions">
-            <label className="btn admin-mini">
-              {uploading ? "Загрузка…" : "Картинка…"}
-              <input type="file" accept="image/png,image/jpeg,image/webp"
-                     hidden onChange={onFile} disabled={uploading} />
-            </label>
-            {image && (
-              <button className="btn admin-mini" onClick={() => { setImage(""); setSaved(false); }}>
-                Убрать
-              </button>
-            )}
-            <button className="btn btn-primary admin-mini" onClick={save}
-                    disabled={saving || uploading || !dirty}>
-              {saving ? "Сохраняем…" : saved ? "Сохранено ✓" : "Сохранить"}
-            </button>
+
+      <label className="label">Заголовок баннера</label>
+      <input className="input" type="text" placeholder="Повышайте свой уровень"
+             value={title} onChange={(e) => { setTitle(e.target.value); setSaved(false); }} />
+
+      <div className="promo-links">
+        {PROGRESS_CATS.map(([aspect, label]) => (
+          <div className="promo-aspect" key={aspect}>
+            <div className="promo-aspect-h">{label}</div>
+            <div className="promo-levels">
+              {(promo.levels?.[aspect] || [1]).map((lvl) => (
+                <label className="promo-lvl" key={lvl}>
+                  <span className="promo-lvl-tag">Уровень {lvl}</span>
+                  <input className="input" type="url" placeholder="https:// ссылка"
+                         value={links[aspect]?.[lvl] ?? ""}
+                         onChange={(e) => setLink(aspect, lvl, e.target.value)} />
+                </label>
+              ))}
+            </div>
           </div>
-        </div>
+        ))}
+      </div>
+
+      <div className="admin-card-actions promo-actions">
+        <button className="btn btn-primary admin-mini" onClick={save} disabled={saving || !dirty}>
+          {saving ? "Сохраняем…" : saved ? "Сохранено ✓" : "Сохранить"}
+        </button>
       </div>
     </div>
   );
@@ -488,6 +504,59 @@ const PROGRESS_CATS = [
   ["management", "Менеджмент"], ["sales", "Продажи"], ["marketing", "Маркетинг"],
 ];
 
+// Выбор групп: показываем только выбранные (чипами), остальное — по поиску.
+// Масштабируется на 100+ групп: список не рендерится целиком, только по запросу.
+function GroupPicker({ groups, selected, onToggle }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+
+  const byId = new Map(groups.map((g) => [g.gc_id, g]));
+  const chosen = [...selected].map((id) => byId.get(id)).filter(Boolean);
+  const q = query.trim().toLowerCase();
+  const available = groups.filter(
+    (g) => !selected.has(g.gc_id) && (!q || g.name.toLowerCase().includes(q))
+  );
+  const MAX = 60;
+
+  return (
+    <div className="gp">
+      <div className="gp-chips">
+        {chosen.length === 0 && <span className="gp-empty">ничего не выбрано</span>}
+        {chosen.map((g) => (
+          <span className="gp-chip" key={g.gc_id}>
+            <span className="gp-chip-name">{g.name}</span>
+            <button className="gp-chip-x" onClick={() => onToggle(g.gc_id)}
+                    title="Убрать" type="button">×</button>
+          </span>
+        ))}
+        <button className="gp-addbtn" type="button" onClick={() => setOpen((o) => !o)}>
+          {open ? "Свернуть" : "+ добавить"}
+        </button>
+      </div>
+
+      {open && (
+        <div className="gp-panel">
+          <input className="input gp-search" type="text" placeholder="Поиск группы по названию…"
+                 value={query} onChange={(e) => setQuery(e.target.value)} autoFocus />
+          <div className="gp-list">
+            {available.length === 0 && <div className="gp-none">ничего не найдено</div>}
+            {available.slice(0, MAX).map((g) => (
+              <button className="gp-opt" type="button" key={g.gc_id}
+                      onClick={() => onToggle(g.gc_id)}>
+                <span className="gp-opt-name">{g.name}</span>
+                <span className="gp-opt-plus">＋</span>
+              </button>
+            ))}
+            {available.length > MAX && (
+              <div className="gp-more">Показаны первые {MAX} из {available.length} — уточните поиск.</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProgressConfigBlock({ onError }) {
   const [cfg, setCfg] = useState(null);   // {groups, exp:{cat:{level:Set}}, know:Set}
   const [saving, setSaving] = useState(false);
@@ -553,8 +622,9 @@ function ProgressConfigBlock({ onError }) {
     <div className="panel admin-block">
       <h2 className="admin-h2">Опыт и Знания: состав групп</h2>
       <p className="muted admin-note">
-        Отметьте, какие группы GetCourse входят в каждый уровень категории («Опыт») и в «Знания».
-        Когда резидент проходит все группы уровня — уровень растёт, прогресс-бар обнуляется.
+        Выберите, какие группы GetCourse входят в каждый уровень категории («Опыт») и в «Знания».
+        Добавляйте группы через поиск — выбранные показаны чипами. Когда резидент проходит все
+        группы уровня, уровень растёт.
       </p>
 
       {cfg.groups.length === 0 && (
@@ -566,16 +636,14 @@ function ProgressConfigBlock({ onError }) {
           <h3 className="admin-group-h">{label}</h3>
           {Object.keys(cfg.exp[cat]).map(Number).sort((a, b) => a - b).map((level) => (
             <div className="pc-level" key={level}>
-              <div className="pc-level-title">Уровень {level}</div>
-              <div className="pc-groups">
-                {cfg.groups.map((g) => (
-                  <label className="pc-chip" key={g.gc_id}>
-                    <input type="checkbox" checked={cfg.exp[cat][level].has(g.gc_id)}
-                           onChange={() => toggleExp(cat, level, g.gc_id)} />
-                    <span>{g.name}</span>
-                  </label>
-                ))}
+              <div className="pc-level-title">
+                Уровень {level}
+                <span className="pc-count">
+                  {cfg.exp[cat][level].size} {plGroups(cfg.exp[cat][level].size)}
+                </span>
               </div>
+              <GroupPicker groups={cfg.groups} selected={cfg.exp[cat][level]}
+                           onToggle={(id) => toggleExp(cat, level, id)} />
             </div>
           ))}
           <button className="btn admin-mini" onClick={() => addLevel(cat)}>+ уровень</button>
@@ -583,16 +651,12 @@ function ProgressConfigBlock({ onError }) {
       ))}
 
       <div className="admin-group">
-        <h3 className="admin-group-h">Знания</h3>
-        <div className="pc-groups">
-          {cfg.groups.map((g) => (
-            <label className="pc-chip" key={g.gc_id}>
-              <input type="checkbox" checked={cfg.know.has(g.gc_id)}
-                     onChange={() => toggleKnow(g.gc_id)} />
-              <span>{g.name}</span>
-            </label>
-          ))}
-        </div>
+        <h3 className="admin-group-h">
+          Знания
+          <span className="pc-count">{cfg.know.size} {plGroups(cfg.know.size)}</span>
+        </h3>
+        <GroupPicker groups={cfg.groups} selected={cfg.know}
+                     onToggle={(id) => toggleKnow(id)} />
       </div>
 
       <div className="admin-card-actions">
