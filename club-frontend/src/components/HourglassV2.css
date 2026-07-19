@@ -1,18 +1,18 @@
-/* Компактная «сцена» песочных часов для дашборда V2.
-   Часы примерно на 20% меньше, чем в v1: ширина SVG ограничена max-width,
-   высота сцены задаётся самим SVG, а подписи и цифры позиционируются в % от
-   этой высоты — поэтому всё масштабируется согласованно. */
+/* Компактная «сцена» песочных часов для дашборда V2 (итерация 2).
+   Слева — подписи аспектов (единственное место уровней), справа от них — часы.
+   Правой колонки цифр-кружков больше нет. Подписи позиционируются в % от высоты
+   сцены, которую задаёт сам SVG, — поэтому всё согласовано по высоте. */
 
 .hgv2-stage {
   position: relative;
   width: 100%;
+  max-width: 384px;
   margin: 0 auto;
-  min-height: 220px;
+  min-height: 150px;
 }
 
-.hgv2-col { position: absolute; top: 0; height: 100%; width: 30%; }
-.hgv2-col-left { left: 0; }
-.hgv2-col-right { right: 0; }
+.hgv2-col { position: absolute; top: 0; height: 100%; }
+.hgv2-col-left { left: 0; width: 34%; }
 
 .hgv2-aspect {
   position: absolute;
@@ -31,40 +31,19 @@
   width: fit-content;
 }
 
-/* Часы: ограничиваем максимальную ширину, чтобы они были «одним из приборов». */
+/* Часы смещены вправо от подписей; ограничиваем размер, чтобы были компактными. */
 .hgv2-svg {
   width: 56%;
-  min-width: 150px;
-  max-width: 200px;
-  margin: 0 auto;
+  min-width: 136px;
+  max-width: 150px;
+  margin: 0 0 0 auto;
   display: block;
 }
 
-.hgv2-num {
-  position: absolute;
-  right: 0;
-  transform: translateY(-50%);
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  border: 2px solid;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  background: rgba(0, 0, 0, 0.35);
-}
-
-@media (max-width: 900px) {
-  .hgv2-svg { max-width: 180px; }
-}
-
 @media (max-width: 460px) {
-  .hgv2-col { width: 32%; }
-  .hgv2-svg { width: 50%; min-width: 130px; max-width: 160px; }
-  .hgv2-num { width: 38px; height: 38px; font-size: 16px; }
+  .hgv2-stage { max-width: 360px; min-height: 190px; }
+  .hgv2-col-left { width: 36%; }
+  .hgv2-svg { width: 60%; min-width: 132px; max-width: 168px; }
   .hgv2-aspect-name { font-size: 13px; }
   .hgv2-aspect-lvl { font-size: 11px; padding: 2px 8px; }
 }

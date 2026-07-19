@@ -1,24 +1,26 @@
-/* ===== Дашборд V2 — «приборная панель» (одна консоль на 1 экран) =====
-   Палитра сохранена из theme.css. HUD-акценты (сетка, свечение, уголки) —
-   только на CSS, без новых зависимостей. */
+/* ===== Дашборд V2 — гейм-стиль (одна колонка по центру, «космическая игра») =====
+   Палитра сохранена из theme.css. Вся графика — только CSS + SVG. */
 
 .ckv2 .ck-main {
-  max-width: 1040px;
+  max-width: 560px;
   margin: 0 auto;
-  padding: 16px 18px 20px;
+  padding: 14px 16px 14px;
   min-height: calc(100dvh - 71px);   /* 71px ≈ высота sticky-шапки */
   display: flex;
+  justify-content: center;
+  align-items: flex-start;
 }
 
-/* --- Консоль --- */
+/* --- Консоль (узкая карточка-приложение) --- */
 .ck {
   position: relative;
-  flex: 1;
+  width: 100%;
+  max-width: 480px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 18px 20px;
-  border-radius: 18px;
+  gap: 10px;
+  padding: 15px 16px 15px;
+  border-radius: 22px;
   border: 1px solid var(--border-strong);
   background:
     linear-gradient(180deg, var(--panel-2), var(--panel)),
@@ -26,163 +28,116 @@
   box-shadow:
     inset 0 0 0 1px rgba(108, 222, 82, 0.05),
     inset 0 0 60px rgba(108, 222, 82, 0.04),
-    0 20px 60px rgba(0, 0, 0, 0.5);
+    0 24px 70px rgba(0, 0, 0, 0.55);
   overflow: hidden;
 }
-/* Уголковые «скобки» HUD */
+/* Уголковые HUD-скобки */
 .ck::before, .ck::after {
   content: "";
   position: absolute;
-  width: 22px; height: 22px;
+  width: 20px; height: 20px;
   border: 2px solid rgba(108, 222, 82, 0.35);
   pointer-events: none;
 }
-.ck::before { top: 8px; left: 8px; border-right: none; border-bottom: none; border-radius: 6px 0 0 0; }
-.ck::after { bottom: 8px; right: 8px; border-left: none; border-top: none; border-radius: 0 0 6px 0; }
+.ck::before { top: 8px; left: 8px; border-right: none; border-bottom: none; border-radius: 7px 0 0 0; }
+.ck::after { bottom: 8px; right: 8px; border-left: none; border-top: none; border-radius: 0 0 7px 0; }
 
 .ck-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  flex-shrink: 0;
 }
-.ck-title {
-  font-size: clamp(20px, 3.2vw, 27px);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  margin: 0;
-}
+.ck-title { font-size: 21px; font-weight: 800; letter-spacing: -0.02em; margin: 0; }
 .ck-status {
-  display: inline-flex; align-items: center; gap: 8px;
-  font-size: 12px; font-weight: 600; color: var(--text-dim);
-  text-transform: uppercase; letter-spacing: 0.06em;
-  padding: 6px 12px; border-radius: 999px;
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 10px; font-weight: 600; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.05em;
+  padding: 5px 11px; border-radius: 999px; white-space: nowrap; flex-shrink: 0;
   border: 1px solid rgba(108, 222, 82, 0.25);
   background: rgba(108, 222, 82, 0.05);
-  white-space: nowrap;
 }
 .ck-status-dot {
-  width: 8px; height: 8px; border-radius: 50%;
+  width: 7px; height: 7px; border-radius: 50%;
   background: var(--green); box-shadow: 0 0 10px var(--green);
 }
 
-/* --- Тело: два отсека --- */
-.ck-body {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: 1.05fr 0.95fr;
-  gap: 14px;
-}
-
-.ck-panel {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  border-radius: 14px;
+/* --- Верхняя панель показателей --- */
+.ck-stats {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 12px 14px 13px;
+  border-radius: 16px;
   border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.015);
-  padding: 14px;
-  min-height: 0;
+  background:
+    radial-gradient(120% 140% at 50% -20%, rgba(108,222,82,0.06), transparent 60%),
+    rgba(255, 255, 255, 0.02);
 }
-
-/* Левый отсек — визуализация */
-.ck-viz { gap: 10px; }
-/* Часы центрируются в свободном пространстве; сама «сцена» имеет естественную
-   высоту (её задаёт SVG), поэтому подписи и цифры (позиционируются в % от высоты
-   сцены) точно совпадают с камерами песочных часов. */
-.ck-viz-hg {
+.ck-statrow { display: flex; align-items: stretch; }
+.ck-stat {
   flex: 1;
-  min-height: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  min-width: 0;
 }
-.ck-viz-hg .hgv2-stage { width: 100%; }
-
-.ck-reco {
-  display: flex; gap: 12px; align-items: flex-start;
-  padding: 12px 14px;
-  border-radius: 12px;
-  border: 1px solid rgba(108, 222, 82, 0.28);
-  background: rgba(108, 222, 82, 0.04);
-  flex-shrink: 0;
+.ck-stat-ic {
+  display: grid; place-items: center;
+  width: 34px; height: 34px; border-radius: 11px;
+  margin-bottom: 2px;
+  background: color-mix(in srgb, var(--ic) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ic) 35%, transparent);
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--ic) 45%, transparent));
 }
-.ck-reco-bulb {
-  flex-shrink: 0; color: var(--green);
-  filter: drop-shadow(0 0 8px currentColor); opacity: 0.9; margin-top: 1px;
+.ck-stat-val {
+  font-size: 25px; font-weight: 800; line-height: 1;
+  font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
 }
-.ck-reco-title {
-  font-size: 13px; font-weight: 700; color: var(--green);
-  margin-bottom: 3px; letter-spacing: 0.02em;
+.ck-stat-sub { font-size: 13px; font-weight: 700; opacity: 0.55; margin-left: 2px; }
+.ck-stat-lbl { font-size: 11.5px; font-weight: 600; color: var(--text-dim); }
+.ck-stat-div { width: 1px; align-self: center; height: 42px; background: var(--border-strong); }
+
+/* Опыт: XP-бар + дни */
+.ck-xp { display: flex; flex-direction: column; gap: 8px; }
+.ck-xp-bar { display: flex; align-items: center; gap: 10px; }
+.ck-xp-tag {
+  font-size: 11px; font-weight: 700; color: var(--green);
+  text-transform: uppercase; letter-spacing: 0.06em; flex-shrink: 0;
 }
-.ck-reco-text { font-size: 13px; line-height: 1.45; color: var(--text-dim); }
-
-.ck-retake { width: 100%; height: 44px; flex-shrink: 0; }
-
-/* Правый отсек — приборы */
-.ck-readout { gap: 12px; justify-content: flex-start; }
-
-/* Опыт */
-.ck-exp { flex-shrink: 0; }
-.ck-exp-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
-.ck-exp-title { font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
-.ck-exp-level { font-size: 13px; font-weight: 700; color: var(--green); }
-.ck-exp-bar { display: flex; align-items: center; gap: 10px; }
-.ck-exp-track {
-  position: relative; flex: 1; height: 7px; border-radius: 999px;
+.ck-xp-track {
+  position: relative; flex: 1; height: 8px; border-radius: 999px;
   background: rgba(255, 255, 255, 0.08); overflow: hidden;
 }
-.ck-exp-fill {
+.ck-xp-fill {
   position: absolute; left: 0; top: 0; height: 100%; border-radius: 999px;
-  background: linear-gradient(90deg, rgba(108, 222, 82, 0.5), var(--green));
-  box-shadow: 0 0 10px rgba(108, 222, 82, 0.45);
+  background: linear-gradient(90deg, rgba(108, 222, 82, 0.45), var(--green));
+  box-shadow: 0 0 12px rgba(108, 222, 82, 0.55);
 }
-.ck-exp-num { font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums; min-width: 38px; text-align: right; }
-.ck-exp-days {
-  margin-top: 9px;
-  font-size: 15px; font-weight: 600; color: var(--text);
-  letter-spacing: -0.01em;
-}
+.ck-xp-num { font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums; min-width: 34px; text-align: right; }
+.ck-xp-days { font-size: 15px; font-weight: 600; color: var(--text); letter-spacing: -0.01em; }
 
-/* Плитки категорий — только цифры */
-.ck-tiles {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
-  flex-shrink: 0;
-}
-.ck-tile {
-  display: flex; flex-direction: column; align-items: center; gap: 4px;
-  padding: 12px 6px 11px;
-  border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--tile) 45%, transparent);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--tile) 10%, transparent), transparent);
-  box-shadow: inset 0 0 18px color-mix(in srgb, var(--tile) 12%, transparent);
-}
-.ck-tile-name { font-size: 12px; font-weight: 600; color: var(--text-dim); text-align: center; }
-.ck-tile-val { font-size: 30px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+/* --- Часы (левые подписи + узкое место, без правых кружков) --- */
+.ck-viz-hg { display: flex; justify-content: center; padding: 0; }
 
-/* Знания / Влияние */
-.ck-mini { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; flex-shrink: 0; }
-.ck-mini-cell {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 11px 14px; border-radius: 12px;
-  border: 1px solid var(--border); background: rgba(255, 255, 255, 0.02);
+/* --- Рекомендация --- */
+.ck-reco {
+  display: flex; gap: 12px; align-items: flex-start;
+  padding: 10px 14px; border-radius: 14px;
+  border: 1px solid rgba(108, 222, 82, 0.28);
+  background: rgba(108, 222, 82, 0.04);
 }
-.ck-mini-label { font-size: 14px; font-weight: 700; }
-.ck-mini-val { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
-.ck-mini-total { font-size: 14px; color: var(--text-dim); font-weight: 700; }
-.ck-mini-gold { color: var(--gold); }
+.ck-reco-bulb {
+  flex-shrink: 0; color: var(--green); margin-top: 1px;
+  filter: drop-shadow(0 0 8px currentColor); opacity: 0.9;
+}
+.ck-reco-title { font-size: 13px; font-weight: 700; color: var(--green); margin-bottom: 3px; letter-spacing: 0.02em; }
+.ck-reco-text { font-size: 13px; line-height: 1.45; color: var(--text-dim); }
 
-/* Промо — компактная строка-кнопка */
+/* --- Действия --- */
+.ck-actions { display: flex; flex-direction: column; gap: 8px; }
+.ck-retake { width: 100%; height: 42px; }
 .ck-promo {
-  margin-top: auto;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 13px 16px; border-radius: 12px;
+  padding: 12px 15px; border-radius: 14px;
   border: 1px solid var(--border); background: rgba(255, 255, 255, 0.02);
   transition: border-color 0.15s ease, background 0.15s ease;
-  flex-shrink: 0;
 }
 .ck-promo:hover { border-color: var(--border-strong); background: rgba(255, 255, 255, 0.04); }
 .ck-promo.is-locked { opacity: 0.7; cursor: default; }
@@ -190,39 +145,17 @@
 .ck-promo-title { font-size: 15px; font-weight: 800; letter-spacing: -0.01em; }
 .ck-promo-cta { font-size: 13px; color: var(--text-dim); font-weight: 600; white-space: nowrap; }
 
-/* --- Планшет/телефон: одна колонка --- */
-@media (max-width: 900px) {
-  .ckv2 .ck-main { min-height: 0; padding: 12px 14px 12px; }
-  .ck { overflow: clip visible; }
-  .ck-body { grid-template-columns: 1fr; gap: 10px; }
-  .ck-viz-hg { padding: 2px 0; }
-}
-
+/* --- Телефон --- */
 @media (max-width: 460px) {
-  .ck { padding: 12px 12px; gap: 7px; }
-  .ck-panel { padding: 10px; }
-  .ck-body { gap: 8px; }
-  .ck-title { font-size: 18px; }
-  .ck-status { font-size: 9.5px; padding: 5px 8px; letter-spacing: 0.03em; white-space: nowrap; flex-shrink: 0; }
-  .ck-status-dot { width: 7px; height: 7px; }
-  .ck-viz { gap: 7px; }
-  .ck-viz-hg { padding: 0; }
-  .ck-viz-hg .hgv2-svg { max-width: 124px; min-width: 112px; }
-  .ck-reco { padding: 9px 12px; gap: 10px; }
-  .ck-reco-bulb svg { width: 20px; height: 20px; }
-  .ck-reco-text { font-size: 12.5px; line-height: 1.4; }
-  .ck-retake { height: 40px; }
-  .ck-tile { padding: 8px 6px; }
-  .ck-tile-name { font-size: 11.5px; }
-  .ck-tile-val { font-size: 22px; }
-  .ck-exp-title { font-size: 17px; }
-  .ck-exp-days { font-size: 14px; margin-top: 6px; }
-  .ck-tiles { gap: 8px; }
-  .ck-mini-cell { padding: 8px 12px; }
-  .ck-mini-val { font-size: 18px; }
-  .ck-promo { padding: 10px 14px; }
-  .ck-promo-title { font-size: 14px; }
+  .ckv2 .ck-main { padding: 12px 12px 16px; }
+  .ck { padding: 14px 13px 16px; gap: 11px; border-radius: 20px; }
+  .ck-title { font-size: 19px; }
+  .ck-stats { padding: 13px 12px 14px; gap: 11px; }
+  .ck-stat-val { font-size: 23px; }
+  .ck-stat-ic { width: 32px; height: 32px; }
+  .ck-xp-days { font-size: 14px; }
+  .ck-reco-text { font-size: 12.5px; }
 }
 
-/* Ветка «тест не пройден» — используем общий каркас .dash-empty */
+/* Ветка «тест не пройден» — общий каркас .dash-empty */
 .ckv2 .dash-empty { margin: 40px auto; }

@@ -185,17 +185,6 @@ export default function HourglassV2({ levels, bottleneck, balanced = false }) {
           </>
         )}
       </svg>
-
-      <div className="hgv2-col hgv2-col-right">
-        {slots.map((s) => (
-          <div className="hgv2-num" key={s.slot} style={{
-            top: `${pct(s.yc)}%`, borderColor: s.base, color: s.base,
-            boxShadow: `0 0 18px ${s.base}44`,
-          }}>
-            {s.level}
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
