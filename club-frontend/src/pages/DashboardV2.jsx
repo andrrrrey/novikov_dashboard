@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../api/client.js";
 import { useAuth } from "../auth/AuthContext.jsx";
 import HourglassV2 from "../components/HourglassV2.jsx";
-import { ExpIcon, KnowledgeIcon, InfluenceIcon, BulbIcon } from "../components/DashIcons.jsx";
+import { ExpIcon, KnowledgeIcon, InfluenceIcon, BulbIcon, RocketIcon } from "../components/DashIcons.jsx";
 import "../components/HourglassV2.css";
 import "../styles/dashboard-v2.css";
 
@@ -74,7 +74,6 @@ export default function DashboardV2() {
                 <span className="ck-exp-kicker">
                   <ExpIcon color={C_EXP} size={15} /> Уровень опыта
                 </span>
-                <span className="ck-exp-prog">{exp.done}/{exp.total} опыта</span>
               </div>
               <span className="ck-exp-days">
                 <b>{exp.days_on_level} {pluralDays(exp.days_on_level)}</b>
@@ -97,6 +96,8 @@ export default function DashboardV2() {
               <span className="ck-mini-val" style={{ color: C_INFL }}>{data.influence ?? 0}</span>
             </div>
           </div>
+
+          <LevelUp data={data} />
         </section>
 
         {/* Часы: левые подписи аспектов (единственное место уровней) + узкое место */}
@@ -120,7 +121,6 @@ export default function DashboardV2() {
 
         <div className="ck-actions">
           <button className="btn ck-retake" onClick={() => navigate("/quiz")}>Пройти тест заново</button>
-          <Promo data={data} />
         </div>
       </div>
     </Shell>
@@ -144,19 +144,24 @@ function RingLevel({ level, pct }) {
   );
 }
 
-// Промо «Повышайте свой уровень» — компактная строка-кнопка.
-function Promo({ data }) {
+// Бейдж «Повышайте свой уровень» — яркий CTA под плашками показателей.
+// Ссылку задаёт админ; при её отсутствии бейдж некликабельный, но выглядит так же.
+function LevelUp({ data }) {
   const title = data.promo_title || "Повышайте свой уровень";
   const link = data.promo_link || undefined;
-  return (
-    <a className={`ck-promo ${link ? "" : "is-locked"}`}
-       href={link}
-       target={link ? "_blank" : undefined}
-       rel="noreferrer">
-      <span className="ck-promo-title">{title}</span>
-      <span className="ck-promo-cta">{link ? "Перейти →" : "Ссылка появится позже"}</span>
-    </a>
+  const inner = (
+    <>
+      <span className="ck-levelup-ic"><RocketIcon size={22} /></span>
+      <span className="ck-levelup-title">{title}</span>
+      <span className="ck-levelup-arrow" aria-hidden="true">→</span>
+    </>
   );
+  if (link) {
+    return (
+      <a className="ck-levelup" href={link} target="_blank" rel="noreferrer">{inner}</a>
+    );
+  }
+  return <div className="ck-levelup is-static">{inner}</div>;
 }
 
 function Shell({ children, logout }) {

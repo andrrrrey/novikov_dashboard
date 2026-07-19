@@ -141,17 +141,20 @@ class UploadOut(BaseModel):
     url: str
 
 
-# --- Плашка «Повышайте свой уровень» (админка) ---
+# --- Баннер «Повышайте свой уровень» (админка) ---
+# Ссылки задаются по паре (аспект, уровень). На дашборде показывается ссылка
+# узкого места (минимального аспекта) на его текущем уровне.
 class PromoOut(BaseModel):
     title: str
-    image: Optional[str] = None
-    link: Optional[str] = None
+    # links[aspect][level] = url
+    links: dict[str, dict[int, str]] = {}
+    # levels[aspect] = [1, 2, ...] — какие уровни настроены (для отрисовки инпутов)
+    levels: dict[str, list[int]] = {}
 
 
 class PromoUpdate(BaseModel):
     title: Optional[str] = None
-    image: Optional[str] = None
-    link: Optional[str] = None
+    links: Optional[dict[str, dict[int, str]]] = None
 
 
 # --- GetCourse (админка) ---
