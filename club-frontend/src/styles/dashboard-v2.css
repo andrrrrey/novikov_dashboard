@@ -88,19 +88,73 @@
   font-variant-numeric: tabular-nums;
 }
 
-.ck-exp-main { display: flex; flex-direction: column; gap: 3px; }
+.ck-exp-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
 .ck-exp-kicker {
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 11px; font-weight: 700; color: var(--text-dim);
   text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;
 }
 .ck-exp-kicker svg { flex-shrink: 0; }
-.ck-exp-kicker svg { animation: ckBreath 3.8s ease-in-out infinite; }
+.ck-exp-kicker > svg { animation: ckBreath 3.8s ease-in-out infinite; }
 .ck-exp-days {
-  margin-left: auto; text-align: right;
+  margin-left: auto; text-align: right; flex-shrink: 0;
   font-size: 13px; color: var(--text-dim); line-height: 1.3;
 }
 .ck-exp-days b { display: block; font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 1px; }
+
+/* Прогресс-бар «Уровень вашего бизнеса»: пройдено / всего материалов опыта */
+.ck-xp { display: flex; align-items: center; gap: 9px; }
+.ck-xp-track {
+  position: relative; flex: 1; min-width: 0; height: 7px;
+  border-radius: 999px; overflow: hidden;
+  background: rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+.ck-xp-fill {
+  position: absolute; inset: 0 auto 0 0; height: 100%;
+  border-radius: 999px; min-width: 7px;
+  background: linear-gradient(90deg, #4fbf3a, #7ce862);
+  box-shadow: 0 0 8px rgba(108, 222, 82, 0.6);
+  transition: width 0.7s ease;
+}
+/* Бегущий блик по заливке */
+.ck-xp-fill::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.45) 50%, transparent);
+  transform: translateX(-160%) skewX(-14deg);
+  animation: ckSheen 4.5s ease-in-out infinite;
+}
+.ck-xp-num {
+  flex-shrink: 0; font-size: 12px; font-weight: 700; color: var(--text-dim);
+  font-variant-numeric: tabular-nums; letter-spacing: 0.01em;
+}
+
+/* Кнопка «?» и попап-подсказка у показателей */
+.ck-tip {
+  flex-shrink: 0; display: inline-grid; place-items: center;
+  width: 18px; height: 18px; padding: 0; border-radius: 50%;
+  border: none; background: transparent; color: var(--text-dim);
+  cursor: pointer; opacity: 0.7; transition: color 0.15s ease, opacity 0.15s ease;
+}
+.ck-tip:hover, .ck-tip.is-open { color: var(--green); opacity: 1; }
+.ck-tip svg { display: block; }
+.ck-mini .ck-tip { margin-left: 2px; }
+
+.ck-tip-pop {
+  position: fixed; z-index: 60; transform: translateX(-50%);
+  padding: 11px 13px; border-radius: 12px;
+  font-size: 12.5px; line-height: 1.5; font-weight: 500;
+  color: var(--text); text-transform: none; letter-spacing: normal;
+  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  border: 1px solid color-mix(in srgb, var(--tip-accent) 40%, var(--border-strong));
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5),
+              inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+  animation: ckTipIn 0.13s ease;
+}
+@keyframes ckTipIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-4px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
 
 /* Знания / Влияние — две приборные плитки */
 .ck-mini-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

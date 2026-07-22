@@ -66,9 +66,13 @@ export const api = {
     return request("/admin/upload", { method: "POST", formData: fd });
   },
 
-  // Плашка «Повышайте свой уровень»
+  // Баннер «Запустить траекторию развития»
   getPromo: () => request("/admin/promo"),
   updatePromo: (patch) => request("/admin/promo", { method: "PATCH", body: patch }),
+
+  // Подсказки к показателям дашборда (попапы «?»)
+  getInfoTips: () => request("/admin/info-tips"),
+  updateInfoTips: (patch) => request("/admin/info-tips", { method: "PATCH", body: patch }),
 
   // GetCourse
   getGetcourse: () => request("/admin/getcourse"),

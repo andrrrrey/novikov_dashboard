@@ -105,3 +105,14 @@ export function BulbIcon(props) {
     </Svg>
   );
 }
+
+// Подсказка — знак вопроса в кружке (кнопка «?» у показателей).
+export function HelpIcon(props) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="12" r="9.2" />
+      <path d="M9.6 9.4a2.4 2.4 0 0 1 4.6.9c0 1.6-2.2 2-2.2 3.4" />
+      <path d="M12 17.2h.01" strokeWidth="2.1" />
+    </Svg>
+  );
+}

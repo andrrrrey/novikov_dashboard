@@ -282,6 +282,7 @@
 .admin-hint { display: flex; flex-direction: column; gap: 8px; }
 .admin-hint-head { font-size: 13px; font-weight: 700; color: var(--text-dim); }
 .admin-hint-text { resize: vertical; line-height: 1.45; font-size: 13.5px; padding: 10px 12px; min-height: 74px; font-family: inherit; }
+.admin-tip-field { margin-bottom: 14px; }
 
 @media (max-width: 560px) {
   .admin-stats { grid-template-columns: 1fr; }

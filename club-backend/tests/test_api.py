@@ -87,7 +87,7 @@ def test_full_resident_flow(client):
     assert data["experience"]["level"] == 1 + 2 + 1   # M=1,S=2,Mg=1 из этого теста
     assert data["knowledge"] == {"done": 0, "total": 0}
     assert data["influence"] == 0
-    assert data["promo_title"] == "Повышайте свой уровень"
+    assert data["promo_title"] == "Запустить траекторию развития"
 
 
 def test_balanced_when_all_levels_equal(client):

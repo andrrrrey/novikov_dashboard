@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client.js";
 import { useAuth } from "../auth/AuthContext.jsx";
 import HourglassV2 from "../components/HourglassV2.jsx";
-import { ExpIcon, KnowledgeIcon, InfluenceIcon, BulbIcon, RocketIcon } from "../components/DashIcons.jsx";
+import { ExpIcon, KnowledgeIcon, InfluenceIcon, BulbIcon, RocketIcon, HelpIcon } from "../components/DashIcons.jsx";
 import "../components/HourglassV2.css";
 import "../styles/dashboard-v2.css";
 
@@ -72,8 +72,15 @@ export default function DashboardV2() {
               <RingLevel level={exp.level} pct={expPct} />
               <div className="ck-exp-main">
                 <span className="ck-exp-kicker">
-                  <ExpIcon color={C_EXP} size={15} /> Уровень опыта
+                  <ExpIcon color={C_EXP} size={15} /> Уровень вашего бизнеса
+                  <InfoTip text={data.info_business} accent={C_EXP} />
                 </span>
+                <div className="ck-xp">
+                  <div className="ck-xp-track">
+                    <div className="ck-xp-fill" style={{ width: `${expPct}%` }} />
+                  </div>
+                  <span className="ck-xp-num">{exp.done} / {exp.total}</span>
+                </div>
               </div>
               <span className="ck-exp-days">
                 <b>{exp.days_on_level} {pluralDays(exp.days_on_level)}</b>
@@ -86,6 +93,7 @@ export default function DashboardV2() {
             <div className="ck-mini" style={{ "--ic": C_KNOW }}>
               <span className="ck-mini-ic"><KnowledgeIcon color={C_KNOW} size={20} /></span>
               <span className="ck-mini-lbl">Знания</span>
+              <InfoTip text={data.info_knowledge} accent={C_KNOW} />
               <span className="ck-mini-val" style={{ color: C_KNOW }}>
                 {kn ? kn.done : 0}
               </span>
@@ -93,6 +101,7 @@ export default function DashboardV2() {
             <div className="ck-mini" style={{ "--ic": C_INFL }}>
               <span className="ck-mini-ic"><InfluenceIcon color={C_INFL} size={20} /></span>
               <span className="ck-mini-lbl">Влияние</span>
+              <InfoTip text={data.info_influence} accent={C_INFL} />
               <span className="ck-mini-val" style={{ color: C_INFL }}>{data.influence ?? 0}</span>
             </div>
           </div>
@@ -144,10 +153,64 @@ function RingLevel({ level, pct }) {
   );
 }
 
-// Бейдж «Повышайте свой уровень» — яркий CTA под плашками показателей.
+// Кнопка «?» рядом с показателем: по клику показывает попап с описанием.
+// Попап позиционируется fixed по координатам кнопки — чтобы не обрезался
+// родителями с overflow: hidden (например, плашкой «Уровень вашего бизнеса»).
+function InfoTip({ text, accent }) {
+  const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState(null);
+  const btnRef = useRef(null);
+
+  function toggle() {
+    if (open) { setOpen(false); return; }
+    const r = btnRef.current.getBoundingClientRect();
+    const W = Math.min(260, window.innerWidth - 24);
+    const centerX = r.left + r.width / 2;
+    const left = Math.max(8 + W / 2, Math.min(centerX, window.innerWidth - 8 - W / 2));
+    setCoords({ top: r.bottom + 8, left, width: W });
+    setOpen(true);
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    const onDoc = (e) => { if (btnRef.current && !btnRef.current.contains(e.target)) setOpen(false); };
+    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [open]);
+
+  if (!text) return null;
+
+  return (
+    <>
+      <button ref={btnRef} type="button" className={`ck-tip${open ? " is-open" : ""}`}
+              aria-label="Подробнее о показателе" aria-expanded={open} onClick={toggle}>
+        <HelpIcon size={15} />
+      </button>
+      {open && coords && (
+        <div className="ck-tip-pop" role="tooltip"
+             style={{ top: coords.top, left: coords.left, width: coords.width,
+                      "--tip-accent": accent || "var(--green)" }}>
+          {text}
+        </div>
+      )}
+    </>
+  );
+}
+
+// Бейдж «Запустить траекторию развития» — яркий CTA под плашками показателей.
 // Ссылку задаёт админ; при её отсутствии бейдж некликабельный, но выглядит так же.
 function LevelUp({ data }) {
-  const title = data.promo_title || "Повышайте свой уровень";
+  const title = data.promo_title || "Запустить траекторию развития";
   const link = data.promo_link || undefined;
   const inner = (
     <>

@@ -27,7 +27,8 @@ from app.quiz_data import QUIZ, answers_to_levels
 from app.schemas import (
     AdminStats, CardAdminOut, CardOut, CardUpdate, CategoryProgress, DashboardOut,
     ExperienceOut, GcGroupOut, GcGroupUpdate, GetCourseOut, GetCourseUpdate, HintOut,
-    HintUpdate, KnowledgeOut, ProgressConfigOut, ProgressConfigUpdate, PromoOut,
+    HintUpdate, InfoTipsOut, InfoTipsUpdate, KnowledgeOut, ProgressConfigOut,
+    ProgressConfigUpdate, PromoOut,
     PromoUpdate, QuizOption, QuizQuestionOut, QuizSubmit, SyncOut, TokenResponse,
     UploadOut, UserCreate, UserOut, UserUpdate,
 )
@@ -152,7 +153,16 @@ def dashboard(
 
 
 def _promo_title(session: Session) -> str:
-    return get_setting(session, "promo_title") or "Повышайте свой уровень"
+    return get_setting(session, "promo_title") or "Запустить траекторию развития"
+
+
+# Ключи попапов-подсказок к показателям дашборда.
+INFO_TIP_KEYS = ("info_knowledge", "info_influence", "info_business")
+
+
+def _info_tips(session: Session) -> dict[str, str]:
+    """Тексты подсказок к показателям: {ключ: текст} (дефолт из settings.DEFAULTS)."""
+    return {key: get_setting(session, key) for key in INFO_TIP_KEYS}
 
 
 def _promo_links(session: Session) -> dict[str, dict[str, str]]:
@@ -189,6 +199,7 @@ def _resolve_promo_link(session: Session, aspect: str, level: int) -> Optional[s
 
 def _build_dashboard(user: User, session: Session) -> DashboardOut:
     title = _promo_title(session)
+    tips = _info_tips(session)
 
     result = session.exec(
         select(QuizResult).where(QuizResult.user_id == user.id)
@@ -198,7 +209,7 @@ def _build_dashboard(user: User, session: Session) -> DashboardOut:
         stats = session.get(UserStats, user.id)
         return DashboardOut(
             quiz_taken=False, influence=stats.influence if stats else 0,
-            promo_title=title, promo_image=None, promo_link=None,
+            promo_title=title, promo_image=None, promo_link=None, **tips,
         )
 
     p = compute_user_progress(session, user)
@@ -244,7 +255,7 @@ def _build_dashboard(user: User, session: Session) -> DashboardOut:
         categories=[CategoryProgress(**c) for c in p["categories"]],
         knowledge=KnowledgeOut(**p["knowledge"]),
         influence=p["influence"],
-        promo_title=title, promo_image=None, promo_link=promo_link,
+        promo_title=title, promo_image=None, promo_link=promo_link, **tips,
     )
 
 
@@ -457,7 +468,7 @@ def update_promo(
     data = payload.model_dump(exclude_unset=True)
     if "title" in data:
         set_setting(session, "promo_title",
-                    (data["title"] or "").strip() or "Повышайте свой уровень")
+                    (data["title"] or "").strip() or "Запустить траекторию развития")
     if "links" in data and data["links"] is not None:
         clean: dict[str, dict[str, str]] = {}
         for cat in CATEGORIES:
@@ -469,6 +480,30 @@ def update_promo(
         set_setting(session, "promo_links", json.dumps(clean, ensure_ascii=False))
     session.commit()
     return _promo_out(session)
+
+
+# --------------------------------------------- Админка: подсказки к показателям
+def _info_tips_out(session: Session) -> InfoTipsOut:
+    return InfoTipsOut(**_info_tips(session))
+
+
+@app.get("/admin/info-tips", response_model=InfoTipsOut)
+def get_info_tips(_: User = Depends(require_admin), session: Session = Depends(get_session)):
+    return _info_tips_out(session)
+
+
+@app.patch("/admin/info-tips", response_model=InfoTipsOut)
+def update_info_tips(
+    payload: InfoTipsUpdate,
+    _: User = Depends(require_admin),
+    session: Session = Depends(get_session),
+):
+    data = payload.model_dump(exclude_unset=True)
+    for key in INFO_TIP_KEYS:
+        if key in data:
+            set_setting(session, key, (data[key] or "").strip())
+    session.commit()
+    return _info_tips_out(session)
 
 
 # ----------------------------------------------------- Админка: настройки GetCourse
