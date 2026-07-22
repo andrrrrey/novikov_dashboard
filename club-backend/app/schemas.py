@@ -96,10 +96,14 @@ class DashboardOut(BaseModel):
     categories: list[CategoryProgress] = []
     knowledge: Optional[KnowledgeOut] = None
     influence: int = 0
-    # Плашка «Повышайте свой уровень» (настраивается в админке).
-    promo_title: str = "Повышайте свой уровень"
+    # Плашка-баннер «Запустить траекторию развития» (настраивается в админке).
+    promo_title: str = "Запустить траекторию развития"
     promo_image: Optional[str] = None
     promo_link: Optional[str] = None
+    # Тексты попапов-подсказок к показателям (редактируются в админке).
+    info_knowledge: str = ""
+    info_influence: str = ""
+    info_business: str = ""
 
 
 # --- Статистика (админка) ---
@@ -155,6 +159,19 @@ class PromoOut(BaseModel):
 class PromoUpdate(BaseModel):
     title: Optional[str] = None
     links: Optional[dict[str, dict[int, str]]] = None
+
+
+# --- Подсказки к показателям дашборда (админка) ---
+class InfoTipsOut(BaseModel):
+    info_knowledge: str = ""
+    info_influence: str = ""
+    info_business: str = ""
+
+
+class InfoTipsUpdate(BaseModel):
+    info_knowledge: Optional[str] = None
+    info_influence: Optional[str] = None
+    info_business: Optional[str] = None
 
 
 # --- GetCourse (админка) ---

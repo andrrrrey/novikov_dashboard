@@ -172,13 +172,13 @@ def test_promo_endpoint(client):
     r = client.get("/admin/promo", headers=h)
     assert r.status_code == 200
     body = r.json()
-    assert body["title"] == "Повышайте свой уровень"
+    assert body["title"] == "Запустить траекторию развития"
     assert "links" in body and "levels" in body
     assert set(body["levels"].keys()) == {"management", "sales", "marketing"}
 
     # задаём ссылки по паре (аспект, уровень)
     r = client.patch("/admin/promo", headers=h, json={
-        "title": "Повышайте свой уровень",
+        "title": "Запустить траекторию развития",
         "links": {
             "marketing": {"1": "https://gc.ru/m1"},
             "sales": {"2": "https://gc.ru/s2"},
@@ -197,6 +197,33 @@ def test_promo_endpoint(client):
     assert dash["bottleneck_aspect"] == "marketing"
     assert dash["promo_link"] == "https://gc.ru/m1"
     assert dash["promo_image"] is None
+
+
+def test_info_tips_endpoint(client):
+    h = _admin(client)
+    # дефолт: три непустых текста-подсказки
+    r = client.get("/admin/info-tips", headers=h)
+    assert r.status_code == 200
+    body = r.json()
+    assert set(body.keys()) == {"info_knowledge", "info_influence", "info_business"}
+    assert all(body[k] for k in body)
+
+    # редактирование сохраняется и попадает на дашборд резидента
+    r = client.patch("/admin/info-tips", headers=h,
+                     json={"info_business": "Новый текст про бизнес"})
+    assert r.status_code == 200
+    assert r.json()["info_business"] == "Новый текст про бизнес"
+
+    client.post("/admin/users", headers=h, json={"email": "tips@x.ru", "password": "pw123456"})
+    tok = client.post("/auth/login", data={"username": "tips@x.ru", "password": "pw123456"}).json()
+    uh = {"Authorization": f"Bearer {tok['access_token']}"}
+    dash = client.get("/me/dashboard", headers=uh).json()
+    assert dash["info_business"] == "Новый текст про бизнес"
+    assert dash["info_knowledge"]  # прочие подсказки — дефолтные, непустые
+
+
+def test_info_tips_requires_admin(client):
+    assert client.get("/admin/info-tips").status_code == 401
 
 
 def test_getcourse_endpoint_masks_key(client):

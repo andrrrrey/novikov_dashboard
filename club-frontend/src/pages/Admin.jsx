@@ -127,6 +127,7 @@ export default function Admin() {
 
         <ProgressConfigBlock onError={setError} />
         <PromoBlock onError={setError} />
+        <InfoTipsBlock onError={setError} />
         <GetCourseBlock onError={setError} />
         <CardsBlock cards={cards} onError={setError} />
         <HintsBlock hints={hints} onError={setError} />
@@ -364,7 +365,7 @@ function PromoBlock({ onError }) {
 
   return (
     <div className="panel admin-block">
-      <h2 className="admin-h2">Баннер «Повышайте свой уровень»</h2>
+      <h2 className="admin-h2">Баннер «Запустить траекторию развития»</h2>
       <p className="muted admin-note">
         Резиденту показывается баннер без картинки. Задайте ссылку для каждого уровня направлений —
         на дашборде откроется ссылка узкого места (самого слабого направления) на его текущем уровне.
@@ -372,7 +373,7 @@ function PromoBlock({ onError }) {
       </p>
 
       <label className="label">Заголовок баннера</label>
-      <input className="input" type="text" placeholder="Повышайте свой уровень"
+      <input className="input" type="text" placeholder="Запустить траекторию развития"
              value={title} onChange={(e) => { setTitle(e.target.value); setSaved(false); }} />
 
       <div className="promo-links">
@@ -394,6 +395,67 @@ function PromoBlock({ onError }) {
           </div>
         ))}
       </div>
+
+      <div className="admin-card-actions promo-actions">
+        <button className="btn btn-primary admin-mini" onClick={save} disabled={saving || !dirty}>
+          {saving ? "Сохраняем…" : saved ? "Сохранено ✓" : "Сохранить"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// --- Подсказки к показателям: тексты попапов «?» у плашек дашборда ---
+const INFO_TIP_FIELDS = [
+  ["info_business", "Уровень вашего бизнеса"],
+  ["info_knowledge", "Знания"],
+  ["info_influence", "Влияние"],
+];
+
+function InfoTipsBlock({ onError }) {
+  const [tips, setTips] = useState(null);
+  const [draft, setDraft] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    api.getInfoTips().then((t) => { setTips(t); setDraft(t); }).catch((e) => onError(e.message));
+  }, []);
+
+  if (!tips) return null;
+
+  const dirty = INFO_TIP_FIELDS.some(([key]) => (draft[key] || "") !== (tips[key] || ""));
+
+  function setField(key, val) {
+    setDraft((prev) => ({ ...prev, [key]: val }));
+    setSaved(false);
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      const patch = Object.fromEntries(INFO_TIP_FIELDS.map(([key]) => [key, draft[key] || ""]));
+      const updated = await api.updateInfoTips(patch);
+      setTips(updated); setDraft(updated); setSaved(true);
+    } catch (err) { onError(err.message); } finally { setSaving(false); }
+  }
+
+  return (
+    <div className="panel admin-block">
+      <h2 className="admin-h2">Подсказки к показателям</h2>
+      <p className="muted admin-note">
+        Текст всплывающих подсказок (иконка «?») у плашек «Уровень вашего бизнеса»,
+        «Знания» и «Влияние» на дашборде резидента.
+      </p>
+
+      {INFO_TIP_FIELDS.map(([key, label]) => (
+        <div className="admin-tip-field" key={key}>
+          <label className="label">{label}</label>
+          <textarea className="input admin-hint-text" rows={3}
+                    value={draft[key] || ""}
+                    onChange={(e) => setField(key, e.target.value)} />
+        </div>
+      ))}
 
       <div className="admin-card-actions promo-actions">
         <button className="btn btn-primary admin-mini" onClick={save} disabled={saving || !dirty}>
