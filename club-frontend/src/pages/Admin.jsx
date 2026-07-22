@@ -638,11 +638,14 @@ function GroupPicker({ groups, selected, onToggle }) {
 
 function ProgressConfigBlock({ onError }) {
   const [cfg, setCfg] = useState(null);   // {groups, exp:{cat:{level:Set}}, know:Set}
+  const [bizMax, setBizMax] = useState("9");   // сумма уровней = 100% уровня бизнеса
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    api.getProgressConfig().then((c) => setCfg(normalize(c))).catch((e) => onError(e.message));
+    api.getProgressConfig()
+      .then((c) => { setCfg(normalize(c)); setBizMax(String(c.business_level_max ?? 9)); })
+      .catch((e) => onError(e.message));
   }, []);
 
   if (!cfg) return null;
@@ -692,7 +695,10 @@ function ProgressConfigBlock({ onError }) {
         exp[cat] = {};
         for (const lvl of Object.keys(cfg.exp[cat])) exp[cat][lvl] = [...cfg.exp[cat][lvl]];
       }
-      await api.updateProgressConfig({ exp, know: [...cfg.know] });
+      await api.updateProgressConfig({
+        exp, know: [...cfg.know],
+        business_level_max: Math.max(1, parseInt(bizMax, 10) || 9),
+      });
       setSaved(true);
     } catch (err) { onError(err.message); } finally { setSaving(false); }
   }
@@ -705,6 +711,17 @@ function ProgressConfigBlock({ onError }) {
         Добавляйте группы через поиск — выбранные показаны чипами. Когда резидент проходит все
         группы уровня, уровень растёт.
       </p>
+
+      <div className="admin-tip-field">
+        <label className="label">Максимальный уровень бизнеса (= 100%)</label>
+        <input className="input" type="number" min="1" style={{ maxWidth: 160 }}
+               value={bizMax}
+               onChange={(e) => { setBizMax(e.target.value); setSaved(false); }} />
+        <p className="muted admin-note" style={{ margin: "8px 0 0" }}>
+          Сумма уровней трёх направлений, при которой уровень бизнеса на дашборде показывает 100.
+          Значение резидента = сумма уровней ÷ этот максимум × 100 (0–100).
+        </p>
+      </div>
 
       {cfg.groups.length === 0 && (
         <p className="muted">Групп пока нет — сначала подключите GetCourse и дождитесь синхронизации.</p>

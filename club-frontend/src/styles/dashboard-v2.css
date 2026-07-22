@@ -88,6 +88,7 @@
   font-variant-numeric: tabular-nums;
   text-shadow: 0 0 8px rgba(108, 222, 82, 0.55);
 }
+.ck-exp-badge-num.is-wide { font-size: 17px; letter-spacing: -0.02em; }
 
 .ck-exp-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .ck-exp-kicker {

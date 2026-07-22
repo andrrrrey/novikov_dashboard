@@ -165,6 +165,14 @@ def _info_tips(session: Session) -> dict[str, str]:
     return {key: get_setting(session, key) for key in INFO_TIP_KEYS}
 
 
+def _business_level_max(session: Session) -> int:
+    """Сумма уровней категорий, соответствующая 100% уровня бизнеса (мин. 1)."""
+    try:
+        return max(1, int(get_setting(session, "business_level_max") or 9))
+    except (ValueError, TypeError):
+        return 9
+
+
 def _promo_links(session: Session) -> dict[str, dict[str, str]]:
     """Ссылки баннера: {aspect: {levelStr: url}} из настройки promo_links (JSON)."""
     raw = get_setting(session, "promo_links") or ""
@@ -240,6 +248,12 @@ def _build_dashboard(user: User, session: Session) -> DashboardOut:
         result.marketing_level == result.sales_level == result.management_level
     )
 
+    # Уровень бизнеса как доля 0..100: сумма уровней / настраиваемый максимум.
+    biz_max = _business_level_max(session)
+    exp_data = dict(p["experience"])
+    exp_data["max_level"] = biz_max
+    exp_data["score"] = max(0, min(100, round(exp_data["level"] / biz_max * 100)))
+
     return DashboardOut(
         quiz_taken=True,
         marketing_level=result.marketing_level,
@@ -251,7 +265,7 @@ def _build_dashboard(user: User, session: Session) -> DashboardOut:
         hint=hint.hint_text if hint else None,
         cards=[CardOut(position=c.position, title=c.title,
                        getcourse_url=c.getcourse_url, cover=c.cover) for c in cards],
-        experience=ExperienceOut(**p["experience"]),
+        experience=ExperienceOut(**exp_data),
         categories=[CategoryProgress(**c) for c in p["categories"]],
         knowledge=KnowledgeOut(**p["knowledge"]),
         influence=p["influence"],
@@ -604,6 +618,7 @@ def get_progress_config(_: User = Depends(require_admin), session: Session = Dep
                            lesson_number=g.lesson_number, counts=g.counts) for g in groups],
         exp=exp,
         know=sorted(set(know)),
+        business_level_max=_business_level_max(session),
     )
 
 
@@ -625,5 +640,7 @@ def update_progress_config(
                                          level=int(level), gc_group_id=int(gc_id)))
     for gc_id in dict.fromkeys(payload.know or []):
         session.add(GcAssignment(track="know", gc_group_id=int(gc_id)))
+    if payload.business_level_max is not None:
+        set_setting(session, "business_level_max", str(max(1, int(payload.business_level_max))))
     session.commit()
     return get_progress_config(session=session)

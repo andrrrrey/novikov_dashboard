@@ -226,6 +226,35 @@ def test_info_tips_requires_admin(client):
     assert client.get("/admin/info-tips").status_code == 401
 
 
+def test_business_level_max_scales_score(client):
+    h = _admin(client)
+    # дефолтный максимум = 9
+    assert client.get("/admin/progress-config", headers=h).json()["business_level_max"] == 9
+
+    client.post("/admin/users", headers=h, json={"email": "score@x.ru", "password": "pw123456"})
+    tok = client.post("/auth/login", data={"username": "score@x.ru", "password": "pw123456"}).json()
+    uh = {"Authorization": f"Bearer {tok['access_token']}"}
+    client.post("/quiz/submit", json={"answers": {"M": 1, "S": 3, "Mg": 1}}, headers=uh)
+
+    exp = client.get("/me/dashboard", headers=uh).json()["experience"]
+    level = exp["level"]                       # сумма уровней категорий
+    assert exp["max_level"] == 9
+    assert exp["score"] == round(level / 9 * 100)
+
+    # меняем максимум -> доля пересчитывается
+    r = client.put("/admin/progress-config", headers=h,
+                   json={"exp": {}, "know": [], "business_level_max": level})
+    assert r.status_code == 200
+    assert r.json()["business_level_max"] == level
+    exp2 = client.get("/me/dashboard", headers=uh).json()["experience"]
+    assert exp2["score"] == 100               # level == max -> 100
+
+    # минимум ограничен единицей (без деления на ноль)
+    client.put("/admin/progress-config", headers=h,
+               json={"exp": {}, "know": [], "business_level_max": 0})
+    assert client.get("/admin/progress-config", headers=h).json()["business_level_max"] == 1
+
+
 def test_getcourse_endpoint_masks_key(client):
     h = _admin(client)
     r = client.get("/admin/getcourse", headers=h)

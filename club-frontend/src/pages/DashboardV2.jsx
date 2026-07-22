@@ -69,7 +69,7 @@ export default function DashboardV2() {
         <section className="ck-stats">
           {exp && (
             <div className="ck-exp-hero">
-              <LevelBadge level={exp.level} />
+              <LevelBadge value={exp.score ?? 0} />
               <div className="ck-exp-main">
                 <span className="ck-exp-kicker">
                   <ExpIcon color={C_EXP} size={15} />
@@ -137,8 +137,9 @@ export default function DashboardV2() {
   );
 }
 
-// Эмблема уровня бизнеса: гранёный гекса-щит с номером уровня внутри.
-function LevelBadge({ level }) {
+// Эмблема уровня бизнеса: гранёный гекса-щит с оценкой 0..100 внутри.
+function LevelBadge({ value }) {
+  const wide = String(value).length >= 3;
   return (
     <div className="ck-exp-badge">
       <svg viewBox="0 0 56 56" className="ck-exp-badge-svg" aria-hidden="true">
@@ -156,7 +157,7 @@ function LevelBadge({ level }) {
         <path className="ck-exp-badge-facet"
               d="M28 9 43 17.6v20.8L28 47 13 38.4V17.6z" />
       </svg>
-      <span className="ck-exp-badge-num">{level}</span>
+      <span className={`ck-exp-badge-num${wide ? " is-wide" : ""}`}>{value}</span>
     </div>
   );
 }
