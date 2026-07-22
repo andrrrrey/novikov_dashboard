@@ -74,6 +74,8 @@ class ExperienceOut(BaseModel):
     done: int
     total: int
     days_on_level: int
+    max_level: int = 9          # сумма уровней, соответствующая 100% (настраивается в админке)
+    score: int = 0              # 0..100 — уровень бизнеса как доля от max_level
 
 
 class KnowledgeOut(BaseModel):
@@ -214,8 +216,10 @@ class ProgressConfigOut(BaseModel):
     # exp[category][level] = [gc_id, ...]
     exp: dict[str, dict[int, list[int]]] = {}
     know: list[int] = []                          # группы трека «Знания»
+    business_level_max: int = 9                   # сумма уровней = 100% уровня бизнеса
 
 
 class ProgressConfigUpdate(BaseModel):
     exp: dict[str, dict[int, list[int]]] = {}
     know: list[int] = []
+    business_level_max: Optional[int] = None

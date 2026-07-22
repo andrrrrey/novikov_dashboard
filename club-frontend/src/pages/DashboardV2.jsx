@@ -69,10 +69,11 @@ export default function DashboardV2() {
         <section className="ck-stats">
           {exp && (
             <div className="ck-exp-hero">
-              <RingLevel level={exp.level} pct={expPct} />
+              <LevelBadge value={exp.score ?? 0} />
               <div className="ck-exp-main">
                 <span className="ck-exp-kicker">
-                  <ExpIcon color={C_EXP} size={15} /> Уровень вашего бизнеса
+                  <ExpIcon color={C_EXP} size={15} />
+                  <span className="ck-exp-kicker-txt">Уровень вашего бизнеса</span>
                   <InfoTip text={data.info_business} accent={C_EXP} />
                 </span>
                 <div className="ck-xp">
@@ -81,11 +82,11 @@ export default function DashboardV2() {
                   </div>
                   <span className="ck-xp-num">{exp.done} / {exp.total}</span>
                 </div>
+                <span className="ck-xp-cap">материалов пройдено до следующего уровня</span>
+                <span className="ck-exp-days">
+                  Вы находитесь <b>{exp.days_on_level} {pluralDays(exp.days_on_level)}</b> на этом уровне
+                </span>
               </div>
-              <span className="ck-exp-days">
-                <b>{exp.days_on_level} {pluralDays(exp.days_on_level)}</b>
-                на этом уровне
-              </span>
             </div>
           )}
 
@@ -136,19 +137,27 @@ export default function DashboardV2() {
   );
 }
 
-// Кольцо-прогресс с уровнем опыта в центре.
-function RingLevel({ level, pct }) {
-  const R = 24;
-  const C = 2 * Math.PI * R;
-  const offset = C * (1 - pct / 100);
+// Эмблема уровня бизнеса: гранёный гекса-щит с оценкой 0..100 внутри.
+function LevelBadge({ value }) {
+  const wide = String(value).length >= 3;
   return (
-    <div className="ck-exp-ring">
-      <svg viewBox="0 0 56 56" className="ck-exp-ring-svg" aria-hidden="true">
-        <circle className="ck-exp-ring-track" cx="28" cy="28" r={R} />
-        <circle className="ck-exp-ring-prog" cx="28" cy="28" r={R}
-                strokeDasharray={C} strokeDashoffset={offset} />
+    <div className="ck-exp-badge">
+      <svg viewBox="0 0 56 56" className="ck-exp-badge-svg" aria-hidden="true">
+        <defs>
+          <linearGradient id="ckBadgeFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="rgba(108,222,82,0.28)" />
+            <stop offset="1" stopColor="rgba(108,222,82,0.06)" />
+          </linearGradient>
+        </defs>
+        {/* Шестигранник-щит */}
+        <path className="ck-exp-badge-shape"
+              d="M28 3.5 48.5 15v26L28 52.5 7.5 41V15z"
+              fill="url(#ckBadgeFill)" />
+        {/* Внутренняя грань для «объёма» */}
+        <path className="ck-exp-badge-facet"
+              d="M28 9 43 17.6v20.8L28 47 13 38.4V17.6z" />
       </svg>
-      <span className="ck-exp-ring-num">{level}</span>
+      <span className={`ck-exp-badge-num${wide ? " is-wide" : ""}`}>{value}</span>
     </div>
   );
 }
