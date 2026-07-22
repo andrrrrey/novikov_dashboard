@@ -14,8 +14,13 @@ const ORDER = ["management", "marketing", "sales"]; // канонический 
 
 const CX = 160, RIM_RY = 16, TOP_Y = 44, BOT_Y = 392;
 
-// Песочные часы
-const HG_TOP_RX = 94, HG_BOT_RX = 94, NECK_Y = 212, NECK_HW = 13;
+// Песочные часы: полуширина каждой из трёх зон зависит от уровня аспекта в ней
+// (1→24, 2→59, 3→94). NECK_Y — вертикальное положение перешейка.
+const NECK_Y = 212, HW_MIN = 24, HW_MAX = 94;
+function hwForLevel(level) {
+  const l = Math.max(1, Math.min(3, level));
+  return HW_MIN + ((l - 1) / 2) * (HW_MAX - HW_MIN);
+}
 // Цилиндр (постоянная полуширина)
 const CYL_RX = 76;
 
@@ -30,16 +35,16 @@ function pct(y) {
 }
 
 // Геометрия песочных часов.
-function hourglassGeo() {
+function hourglassGeo(topRx, neckHW, botRx) {
   const SIL =
-    `M${CX - HG_TOP_RX},${TOP_Y} L${CX + HG_TOP_RX},${TOP_Y} L${CX + NECK_HW},${NECK_Y}` +
-    ` L${CX + HG_BOT_RX},${BOT_Y} L${CX - HG_BOT_RX},${BOT_Y} L${CX - NECK_HW},${NECK_Y} Z`;
+    `M${CX - topRx},${TOP_Y} L${CX + topRx},${TOP_Y} L${CX + neckHW},${NECK_Y}` +
+    ` L${CX + botRx},${BOT_Y} L${CX - botRx},${BOT_Y} L${CX - neckHW},${NECK_Y} Z`;
   const hw = (y) =>
     y <= NECK_Y
-      ? Math.max(HG_TOP_RX + (y - TOP_Y) / (NECK_Y - TOP_Y) * (NECK_HW - HG_TOP_RX), NECK_HW)
-      : NECK_HW + (y - NECK_Y) / (BOT_Y - NECK_Y) * (HG_BOT_RX - NECK_HW);
+      ? Math.max(topRx + (y - TOP_Y) / (NECK_Y - TOP_Y) * (neckHW - topRx), neckHW)
+      : neckHW + (y - NECK_Y) / (BOT_Y - NECK_Y) * (botRx - neckHW);
   return {
-    SIL, hw, topRx: HG_TOP_RX, botRx: HG_BOT_RX,
+    SIL, hw, topRx, botRx, neckHW,
     order: ["top", "neck", "bottom"],
     slots: {
       top:    { yc: 128, zone: [72, 190] },
@@ -67,14 +72,21 @@ function cylinderGeo() {
 }
 
 export default function Hourglass({ levels, bottleneck, hint, balanced = false }) {
-  const geo = balanced ? cylinderGeo() : hourglassGeo();
-
   const placement = balanced
     ? { top: ORDER[0], mid: ORDER[1], bottom: ORDER[2] }
     : (() => {
         const rest = ORDER.filter((a) => a !== bottleneck.aspect);
         return { top: rest[0], neck: bottleneck.aspect, bottom: rest[1] };
       })();
+
+  // Ширина каждой зоны песочных часов — по уровню стоящего в ней аспекта.
+  const geo = balanced
+    ? cylinderGeo()
+    : hourglassGeo(
+        hwForLevel(levels[placement.top]),
+        hwForLevel(levels[placement.neck]),
+        hwForLevel(levels[placement.bottom]),
+      );
 
   const slots = geo.order.map((slot) => {
     const aspect = placement[slot];
@@ -92,6 +104,14 @@ export default function Hourglass({ levels, bottleneck, hint, balanced = false }
   const bnText = bn ? `Узкое место: ${bn.label}` : "";
   const pillW = bnText.length * 8.6 + 30;
   const cleanHint = (hint || "").replace(/^Узкое место:[^.]*\.\s*/, "");
+
+  // Блик по внутренней левой кромке — следует за силуэтом при любых ширинах.
+  const shineTop = balanced ? "" :
+    `${CX - geo.hw(TOP_Y + 10) + 10},${TOP_Y + 10} ${CX - geo.neckHW + 3},${NECK_Y - 6}` +
+    ` ${CX},${NECK_Y - 6} ${CX - geo.hw(TOP_Y + 10) + 26},${TOP_Y + 10}`;
+  const shineBot = balanced ? "" :
+    `${CX - geo.neckHW + 3},${NECK_Y + 8} ${CX - geo.hw(BOT_Y - 8) + 10},${BOT_Y - 8}` +
+    ` ${CX - geo.hw(BOT_Y - 8) + 30},${BOT_Y - 8} ${CX},${NECK_Y + 8}`;
 
   return (
     <div className="hg">
@@ -149,8 +169,8 @@ export default function Hourglass({ levels, bottleneck, hint, balanced = false }
                     fill="url(#shine)" opacity="0.35" />
             ) : (
               <>
-                <polygon points="76,54 150,206 160,206 92,54" fill="url(#shine)" opacity="0.5" />
-                <polygon points="150,220 76,384 96,384 160,220" fill="url(#shine)" opacity="0.4" />
+                <polygon points={shineTop} fill="url(#shine)" opacity="0.5" />
+                <polygon points={shineBot} fill="url(#shine)" opacity="0.4" />
               </>
             )}
           </g>
@@ -177,7 +197,7 @@ export default function Hourglass({ levels, bottleneck, hint, balanced = false }
           <ellipse cx={CX} cy={BOT_Y} rx={geo.botRx} ry={RIM_RY} fill="none"
                    stroke="#a9dcff" strokeWidth="2.4" filter="url(#glow)" />
           {!balanced && (
-            <ellipse cx={CX} cy={NECK_Y} rx={NECK_HW} ry="4" fill="none"
+            <ellipse cx={CX} cy={NECK_Y} rx={geo.neckHW} ry="4" fill="none"
                      stroke="#a9dcff" strokeWidth="1.6" opacity="0.8" />
           )}
 
