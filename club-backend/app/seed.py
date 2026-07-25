@@ -7,11 +7,14 @@
 Ссылки на GetCourse и обложки оставлены пустыми — заполняются командой клуба.
 """
 
+from datetime import date
+
 from sqlmodel import Session, select
 
-from app.config import ADMIN_EMAIL, ADMIN_PASSWORD
+from app.config import ADMIN_EMAIL, ADMIN_PASSWORD, DEMO_EMAIL, DEMO_PASSWORD
 from app.database import engine
-from app.models import ContentCard, TrajectoryHint, User
+from app.demo import DEMO_PROFILE
+from app.models import ContentCard, QuizResult, TrajectoryHint, User, UserProfile
 from app.security import hash_password
 
 M, S, MG = "marketing", "sales", "management"
@@ -98,4 +101,35 @@ def seed() -> None:
                 role="admin",
             ))
 
+        _seed_demo(session)
+
         session.commit()
+
+
+def _seed_demo(session: Session) -> None:
+    """
+    Демо-резидент: логин+пароль + заполненная анкета и результат теста.
+    Числа на дашборде/резидентах — вымышленные (app/demo.py), не из GetCourse.
+    """
+    demo = session.exec(select(User).where(User.email == DEMO_EMAIL)).first()
+    if demo is None:
+        demo = User(email=DEMO_EMAIL, password_hash=hash_password(DEMO_PASSWORD),
+                    role="user")
+        session.add(demo)
+        session.flush()   # получить demo.id для связанных строк
+
+    if session.get(UserProfile, demo.id) is None:
+        session.add(UserProfile(
+            user_id=demo.id,
+            first_name=DEMO_PROFILE["first_name"], last_name=DEMO_PROFILE["last_name"],
+            business_name=DEMO_PROFILE["business_name"],
+            business_field=DEMO_PROFILE["business_field"],
+            birth_date=date.fromisoformat(DEMO_PROFILE["birth_date"]),
+            photo_url=DEMO_PROFILE["photo_url"], completed=True,
+        ))
+
+    if session.exec(select(QuizResult).where(QuizResult.user_id == demo.id)).first() is None:
+        session.add(QuizResult(
+            user_id=demo.id, marketing_level=3, sales_level=1, management_level=2,
+            bottleneck_aspect="sales", bottleneck_level=1, answers_json="{}",
+        ))

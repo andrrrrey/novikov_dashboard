@@ -17,3 +17,6 @@ club-backend/uploads/
 # Логи и системные файлы
 *.log
 .DS_Store
+
+# База данных SQLite
+*.db

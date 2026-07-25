@@ -250,6 +250,36 @@
 .tag-ok { color: var(--green); background: rgba(108, 222, 82, 0.12); }
 .tag-wait { color: var(--gold); background: rgba(231, 178, 76, 0.12); }
 
+/* --- Админка: пользователи с анкетой --- */
+.admin-users { display: flex; flex-direction: column; gap: 10px; }
+.admin-user {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.02); padding: 12px 14px;
+}
+.admin-user-main { display: flex; align-items: center; gap: 13px; }
+.admin-user-id { flex: 1; min-width: 0; }
+.admin-user-name {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  font-size: 15px; font-weight: 700;
+}
+.admin-user-role { font-size: 11px; padding: 2px 8px; }
+.admin-user-email { font-size: 13px; color: var(--text-dim); margin-top: 2px; overflow-wrap: anywhere; }
+.admin-user-biz { font-size: 13px; margin-top: 3px; }
+.admin-user-side { display: flex; align-items: center; gap: 16px; flex: none; }
+.admin-user-infl { display: flex; flex-direction: column; gap: 4px; }
+.admin-user-infl-lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+.admin-user-actions { flex-wrap: wrap; }
+.admin-user-edit {
+  margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-strong);
+  display: flex; flex-direction: column; gap: 12px;
+}
+.admin-user-edit-photo { display: flex; align-items: center; gap: 10px; }
+
+@media (max-width: 620px) {
+  .admin-user-main { flex-wrap: wrap; }
+  .admin-user-side { width: 100%; justify-content: space-between; }
+}
+
 /* --- Админка: карточки и подсказки --- */
 .admin-note { font-size: 13px; margin: -8px 0 16px; }
 .admin-group { margin-bottom: 22px; }

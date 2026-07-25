@@ -142,6 +142,28 @@ def _quiz_levels(session: Session, user: User) -> dict[str, int]:
     }
 
 
+def business_level(
+    session: Session, user: User, exp_map: dict[tuple[str, int], set[int]]
+) -> int:
+    """
+    Уровень бизнеса резидента = сумма уровней трёх категорий. Read-only:
+    не трогает UserStats (в отличие от compute_user_progress). exp_map передаётся
+    снаружи, чтобы посчитать один раз на список пользователей.
+    """
+    completed = completed_ids(session, user.email)
+    quiz_levels = _quiz_levels(session, user)
+    total = 0
+    for cat in CATEGORIES:
+        level, _done, _tot = category_progress(exp_map, completed, cat, quiz_levels[cat])
+        total += level
+    return total
+
+
+def exp_assignments(session: Session) -> dict[tuple[str, int], set[int]]:
+    """Публичная обёртка над _exp_assignments (для расчёта уровней списка резидентов)."""
+    return _exp_assignments(session)
+
+
 def compute_user_progress(session: Session, user: User) -> dict:
     """
     Собрать все показатели для дашборда: категории, опыт, знания, влияние, дни на уровне.

@@ -1,9 +1,9 @@
 """Pydantic-схемы для входных и выходных данных API."""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 
 
 # --- Авторизация ---
@@ -24,6 +24,13 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     password: Optional[str] = None
     influence: Optional[int] = None
+    # Анкетные поля — правка админом (все опциональны).
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    business_name: Optional[str] = None
+    business_field: Optional[str] = None
+    birth_date: Optional[date] = None
+    photo_url: Optional[str] = None
 
 
 class UserOut(BaseModel):
@@ -33,6 +40,53 @@ class UserOut(BaseModel):
     created_at: datetime
     quiz_taken: bool = False
     influence: int = 0
+    # Анкета резидента (для таблицы всех пользователей в админке).
+    profile_completed: bool = False
+    first_name: str = ""
+    last_name: str = ""
+    business_name: str = ""
+    business_field: str = ""
+    birth_date: Optional[date] = None
+    photo_url: Optional[str] = None
+
+
+# --- Анкета резидента (онбординг + профиль) ---
+class ProfileOut(BaseModel):
+    completed: bool = False
+    first_name: str = ""
+    last_name: str = ""
+    business_name: str = ""
+    business_field: str = ""
+    birth_date: Optional[date] = None
+    photo_url: Optional[str] = None
+
+
+class ProfileUpdate(BaseModel):
+    first_name: str
+    last_name: str
+    business_name: str
+    business_field: str
+    birth_date: date
+    photo_url: Optional[str] = None
+
+    @field_validator("first_name", "last_name", "business_name", "business_field")
+    @classmethod
+    def _not_blank(cls, v: str) -> str:
+        v = (v or "").strip()
+        if not v:
+            raise ValueError("Поле обязательно для заполнения")
+        return v
+
+
+# --- Резиденты (похожие по уровню, для мобильного экрана) ---
+class ResidentOut(BaseModel):
+    id: int
+    first_name: str = ""
+    last_name: str = ""
+    business_name: str = ""
+    business_field: str = ""
+    photo_url: Optional[str] = None
+    business_level: int = 0
 
 
 # --- Квиз ---
