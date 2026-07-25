@@ -106,6 +106,40 @@ export function BulbIcon(props) {
   );
 }
 
+// Галочка — отметка пройденного уровня (в бейдже уровня бизнеса).
+export function CheckIcon(props) {
+  return (
+    <Svg {...props}>
+      <path d="M5 12.5 10 17.5 19 6.5" strokeWidth="2.4" />
+    </Svg>
+  );
+}
+
+// Навигация: дашборд — сетка панелей (нижнее меню в мобильной версии).
+export function GridIcon(props) {
+  const c = props.color || "currentColor";
+  return (
+    <Svg {...props}>
+      <rect x="3.5" y="3.5" width="7" height="7" rx="1.6" fill={c} fillOpacity="0.14" />
+      <rect x="13.5" y="3.5" width="7" height="7" rx="1.6" fill={c} fillOpacity="0.14" />
+      <rect x="3.5" y="13.5" width="7" height="7" rx="1.6" fill={c} fillOpacity="0.14" />
+      <rect x="13.5" y="13.5" width="7" height="7" rx="1.6" fill={c} fillOpacity="0.14" />
+    </Svg>
+  );
+}
+
+// Навигация: резиденты — группа людей (нижнее меню в мобильной версии).
+export function PeopleIcon(props) {
+  const c = props.color || "currentColor";
+  return (
+    <Svg {...props}>
+      <circle cx="9" cy="8" r="3.2" fill={c} fillOpacity="0.14" />
+      <path d="M3.5 19c0-3 2.5-4.8 5.5-4.8s5.5 1.8 5.5 4.8" />
+      <path d="M16 5.4a3 3 0 0 1 0 5.4M17 14.4c2.3.5 3.8 2 3.8 4.6" strokeOpacity="0.7" />
+    </Svg>
+  );
+}
+
 // Подсказка — знак вопроса в кружке (кнопка «?» у показателей).
 export function HelpIcon(props) {
   return (

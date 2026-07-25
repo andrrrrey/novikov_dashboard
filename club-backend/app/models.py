@@ -1,6 +1,6 @@
 """Модели данных приложения."""
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Optional
 
 from sqlmodel import Field, SQLModel, UniqueConstraint
@@ -16,6 +16,21 @@ class User(SQLModel, table=True):
     password_hash: str
     role: str = Field(default="user")             # "user" | "admin"
     created_at: datetime = Field(default_factory=_now)
+
+
+class UserProfile(SQLModel, table=True):
+    """
+    Анкета резидента (онбординг при первом входе). Отдельная таблица — существующие
+    не меняем. Все поля, кроме photo_url, обязательны при заполнении анкеты.
+    """
+    user_id: int = Field(foreign_key="user.id", primary_key=True)
+    first_name: str = ""          # имя
+    last_name: str = ""           # фамилия
+    business_name: str = ""       # название бизнеса/компании
+    business_field: str = ""      # сфера / специализация
+    birth_date: Optional[date] = None
+    photo_url: Optional[str] = None
+    completed: bool = Field(default=False)   # анкета пройдена
 
 
 class QuizResult(SQLModel, table=True):

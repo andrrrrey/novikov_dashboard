@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client.js";
 import { useAuth } from "../auth/AuthContext.jsx";
+import Avatar from "../components/Avatar.jsx";
 
 const ASPECT_LABEL = { marketing: "Маркетинг", sales: "Продажи", management: "Менеджмент" };
 
@@ -93,34 +94,15 @@ export default function Admin() {
         </div>
 
         <div className="panel admin-block">
-          <h2 className="admin-h2">Резиденты</h2>
-          <div className="admin-table admin-table-users">
-            <div className="admin-row admin-row-head">
-              <span>Email</span><span>Тест</span><span>Роль</span><span>Влияние</span><span></span>
-            </div>
+          <h2 className="admin-h2">Пользователи</h2>
+          <p className="muted admin-note">
+            Все резиденты клуба с анкетными данными. Можно отредактировать профиль, сбросить
+            пароль, задать «Влияние» или удалить.
+          </p>
+          <div className="admin-users">
             {users.map((u) => (
-              <div className="admin-row" key={u.id}>
-                <span className="admin-email">{u.email}</span>
-                <span>
-                  {u.quiz_taken
-                    ? <em className="tag tag-ok">пройден</em>
-                    : <em className="tag tag-wait">ожидает</em>}
-                </span>
-                <span className="muted">{u.role === "admin" ? "админ" : "резидент"}</span>
-                <span>
-                  {u.role === "admin"
-                    ? <span className="muted">—</span>
-                    : <InfluenceEditor user={u} onSaved={reload} onError={setError} />}
-                </span>
-                <span className="admin-actions">
-                  <button className="btn admin-mini" onClick={() => resetPassword(u)}>Пароль</button>
-                  {u.role !== "admin" && (
-                    <button className="btn admin-mini admin-danger" onClick={() => removeUser(u)}>
-                      Удалить
-                    </button>
-                  )}
-                </span>
-              </div>
+              <UserRow key={u.id} user={u} onReload={reload} onError={setError}
+                       onResetPassword={resetPassword} onRemove={removeUser} />
             ))}
           </div>
         </div>
@@ -575,6 +557,140 @@ function InfluenceEditor({ user, onSaved, onError }) {
         {saving ? "…" : "✓"}
       </button>
     </span>
+  );
+}
+
+// --- Строка пользователя: анкета + действия админа (просмотр + редактирование) ---
+function UserRow({ user, onReload, onError, onResetPassword, onRemove }) {
+  const [editing, setEditing] = useState(false);
+  const isAdmin = user.role === "admin";
+  const fullName = `${user.first_name} ${user.last_name}`.trim();
+
+  return (
+    <div className="admin-user">
+      <div className="admin-user-main">
+        <Avatar photoUrl={user.photo_url} firstName={user.first_name}
+                lastName={user.last_name} size={44} />
+        <div className="admin-user-id">
+          <div className="admin-user-name">
+            {fullName || <span className="muted">— без анкеты</span>}
+            {isAdmin
+              ? <em className="tag tag-wait admin-user-role">админ</em>
+              : (user.quiz_taken
+                  ? <em className="tag tag-ok admin-user-role">тест пройден</em>
+                  : <em className="tag tag-wait admin-user-role">тест ожидает</em>)}
+          </div>
+          <div className="admin-user-email">{user.email}</div>
+          {(user.business_name || user.business_field) && (
+            <div className="admin-user-biz">
+              {user.business_name}
+              {user.business_field && <span className="muted"> · {user.business_field}</span>}
+              {user.birth_date && <span className="muted"> · р. {user.birth_date}</span>}
+            </div>
+          )}
+        </div>
+        <div className="admin-user-side">
+          {!isAdmin && (
+            <div className="admin-user-infl">
+              <span className="muted admin-user-infl-lbl">Влияние</span>
+              <InfluenceEditor user={user} onSaved={onReload} onError={onError} />
+            </div>
+          )}
+          <div className="admin-actions admin-user-actions">
+            {!isAdmin && (
+              <button className="btn admin-mini" onClick={() => setEditing((v) => !v)}>
+                {editing ? "Свернуть" : "Профиль"}
+              </button>
+            )}
+            <button className="btn admin-mini" onClick={() => onResetPassword(user)}>Пароль</button>
+            {!isAdmin && (
+              <button className="btn admin-mini admin-danger" onClick={() => onRemove(user)}>
+                Удалить
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+      {editing && !isAdmin && (
+        <ProfileEditor user={user}
+                       onSaved={() => { setEditing(false); onReload(); }}
+                       onError={onError} />
+      )}
+    </div>
+  );
+}
+
+function ProfileEditor({ user, onSaved, onError }) {
+  const [form, setForm] = useState({
+    first_name: user.first_name || "", last_name: user.last_name || "",
+    business_name: user.business_name || "", business_field: user.business_field || "",
+    birth_date: user.birth_date || "", photo_url: user.photo_url || "",
+  });
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  function set(key, val) { setForm((prev) => ({ ...prev, [key]: val })); }
+
+  async function onFile(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploading(true);
+    try {
+      const { url } = await api.uploadImage(file);
+      set("photo_url", url);
+    } catch (err) { onError(err.message); } finally { setUploading(false); }
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      await api.updateUser(user.id, {
+        first_name: form.first_name, last_name: form.last_name,
+        business_name: form.business_name, business_field: form.business_field,
+        birth_date: form.birth_date || null, photo_url: form.photo_url || null,
+      });
+      await onSaved();
+    } catch (err) { onError(err.message); } finally { setSaving(false); }
+  }
+
+  return (
+    <div className="admin-user-edit">
+      <div className="admin-user-edit-photo">
+        <Avatar photoUrl={form.photo_url} firstName={form.first_name}
+                lastName={form.last_name} size={56} />
+        <label className="btn admin-mini">
+          {uploading ? "Загрузка…" : "Фото…"}
+          <input type="file" accept="image/png,image/jpeg,image/webp"
+                 hidden onChange={onFile} disabled={uploading} />
+        </label>
+        {form.photo_url && (
+          <button className="btn admin-mini" onClick={() => set("photo_url", "")}>Убрать</button>
+        )}
+      </div>
+      <div className="onb-grid">
+        <label className="onb-field"><span className="label">Фамилия</span>
+          <input className="input" value={form.last_name}
+                 onChange={(e) => set("last_name", e.target.value)} /></label>
+        <label className="onb-field"><span className="label">Имя</span>
+          <input className="input" value={form.first_name}
+                 onChange={(e) => set("first_name", e.target.value)} /></label>
+        <label className="onb-field onb-field-wide"><span className="label">Название бизнеса</span>
+          <input className="input" value={form.business_name}
+                 onChange={(e) => set("business_name", e.target.value)} /></label>
+        <label className="onb-field onb-field-wide"><span className="label">Сфера / специализация</span>
+          <input className="input" value={form.business_field}
+                 onChange={(e) => set("business_field", e.target.value)} /></label>
+        <label className="onb-field"><span className="label">Дата рождения</span>
+          <input className="input" type="date" value={form.birth_date}
+                 onChange={(e) => set("birth_date", e.target.value)} /></label>
+      </div>
+      <div className="admin-card-actions">
+        <button className="btn btn-primary admin-mini" onClick={save} disabled={saving || uploading}>
+          {saving ? "Сохраняем…" : "Сохранить профиль"}
+        </button>
+      </div>
+    </div>
   );
 }
 

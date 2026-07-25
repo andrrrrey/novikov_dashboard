@@ -3,7 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../api/client.js";
 import { useAuth } from "../auth/AuthContext.jsx";
 import HourglassV2 from "../components/HourglassV2.jsx";
-import { ExpIcon, KnowledgeIcon, InfluenceIcon, BulbIcon, RocketIcon, HelpIcon } from "../components/DashIcons.jsx";
+import Avatar from "../components/Avatar.jsx";
+import MobileNav from "../components/MobileNav.jsx";
+import { ExpIcon, KnowledgeIcon, InfluenceIcon, BulbIcon, RocketIcon, HelpIcon, CheckIcon } from "../components/DashIcons.jsx";
 import "../components/HourglassV2.css";
 import "../styles/dashboard-v2.css";
 
@@ -24,20 +26,38 @@ function pluralDays(n) {
 
 export default function DashboardV2() {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, role } = useAuth();
   const [data, setData] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    api.dashboard().then(setData).catch((e) => setError(e.message));
+    // Гейт онбординга: обычный резидент без заполненной анкеты → на опрос.
+    // Ранее созданные пользователи (до анкеты) увидят её при следующем входе.
+    api.getProfile().then((p) => {
+      if (role !== "admin" && !p.completed) {
+        navigate("/onboarding", { replace: true });
+        return;
+      }
+      setProfile(p);
+      api.dashboard().then(setData).catch((e) => setError(e.message));
+    }).catch((e) => setError(e.message));
   }, []);
 
-  if (error) return <Shell logout={logout}><div className="panel dash-msg">{error}</div></Shell>;
-  if (!data) return <Shell logout={logout}><div className="panel dash-msg muted">Загрузка…</div></Shell>;
+  function updateProfile(patch) {
+    return api.saveProfile({
+      first_name: profile.first_name, last_name: profile.last_name,
+      business_name: profile.business_name, business_field: profile.business_field,
+      birth_date: profile.birth_date, ...patch,
+    }).then(setProfile);
+  }
+
+  if (error) return <Shell logout={logout} profile={profile} onPhoto={updateProfile}><div className="panel dash-msg">{error}</div></Shell>;
+  if (!data) return <Shell logout={logout} profile={profile} onPhoto={updateProfile}><div className="panel dash-msg muted">Загрузка…</div></Shell>;
 
   if (!data.quiz_taken) {
     return (
-      <Shell logout={logout}>
+      <Shell logout={logout} profile={profile} onPhoto={updateProfile}>
         <div className="dash-empty panel">
           <h2>Пройдите короткий тест</h2>
           <p className="muted">3 вопроса, меньше минуты. По ответам мы определим ваше узкое место
@@ -59,7 +79,7 @@ export default function DashboardV2() {
   const expPct = exp && exp.total > 0 ? Math.min(100, Math.round((exp.done / exp.total) * 100)) : 0;
 
   return (
-    <Shell logout={logout}>
+    <Shell logout={logout} profile={profile} onPhoto={updateProfile}>
       <div className="ck">
         <div className="ck-head">
           <h1 className="ck-title">Состояние бизнеса</h1>
@@ -86,6 +106,7 @@ export default function DashboardV2() {
                 <span className="ck-exp-days">
                   Вы находитесь <b>{exp.days_on_level} {pluralDays(exp.days_on_level)}</b> на этом уровне
                 </span>
+                <LevelTrack level={exp.level ?? 0} max={exp.max_level ?? 0} />
               </div>
             </div>
           )}
@@ -236,14 +257,121 @@ function LevelUp({ data }) {
   return <div className="ck-levelup is-static">{inner}</div>;
 }
 
-function Shell({ children, logout }) {
+function Shell({ children, logout, profile, onPhoto }) {
   return (
-    <div className="dash-wrap ckv2">
+    <div className="dash-wrap ckv2 has-mnav">
       <header className="dash-topbar">
         <div className="dash-brand"><span className="login-dot" /> Клуб · кабинет резидента</div>
         <button className="btn dash-logout" onClick={logout}>Выйти</button>
       </header>
-      <main className="ck-main">{children}</main>
+      <main className="ck-main">
+        <div className="ck-main-inner">
+          {profile && <ProfileHeader profile={profile} onPhoto={onPhoto} />}
+          {children}
+        </div>
+      </main>
+      <MobileNav />
+    </div>
+  );
+}
+
+// Шапка профиля: аватар (клик → попап фото), имя и название бизнеса.
+function ProfileHeader({ profile, onPhoto }) {
+  const [open, setOpen] = useState(false);
+  const fullName = `${profile.first_name} ${profile.last_name}`.trim() || "Резидент";
+  return (
+    <div className="ck-profile">
+      <button className="ck-avatar-btn" type="button" onClick={() => setOpen(true)}
+              aria-label="Открыть фото профиля">
+        <Avatar photoUrl={profile.photo_url} firstName={profile.first_name}
+                lastName={profile.last_name} size={52} />
+      </button>
+      <div className="ck-profile-meta">
+        <div className="ck-profile-name">{fullName}</div>
+        {profile.business_name && <div className="ck-profile-biz">{profile.business_name}</div>}
+      </div>
+      {open && onPhoto && (
+        <AvatarModal profile={profile} onPhoto={onPhoto} onClose={() => setOpen(false)} />
+      )}
+    </div>
+  );
+}
+
+// Попап фото: крупное фото + загрузка с ПК / удаление.
+function AvatarModal({ profile, onPhoto, onClose }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function upload(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setBusy(true);
+    setError("");
+    try {
+      const { url } = await api.uploadMyPhoto(file);
+      await onPhoto({ photo_url: url });
+      onClose();
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  }
+
+  async function remove() {
+    setBusy(true);
+    setError("");
+    try {
+      await onPhoto({ photo_url: null });
+      onClose();
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="ph-overlay" onClick={onClose}>
+      <div className="ph-modal" onClick={(e) => e.stopPropagation()}>
+        <button className="ph-close" type="button" onClick={onClose} aria-label="Закрыть">×</button>
+        <div className="ph-photo">
+          <Avatar photoUrl={profile.photo_url} firstName={profile.first_name}
+                  lastName={profile.last_name} size={200} />
+        </div>
+        {error && <div className="login-error">{error}</div>}
+        <div className="ph-actions">
+          <label className={`btn btn-primary${busy ? " is-busy" : ""}`}>
+            {busy ? "Загрузка…" : "Загрузить фото с ПК"}
+            <input type="file" accept="image/png,image/jpeg,image/webp"
+                   hidden onChange={upload} disabled={busy} />
+          </label>
+          {profile.photo_url && (
+            <button className="btn" type="button" onClick={remove} disabled={busy}>
+              Удалить фото
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Дорожка уровней 1..max: пройденные (n ≤ level) с галочкой, остальные — тусклые.
+function LevelTrack({ level, max }) {
+  if (!max || max < 1) return null;
+  const nums = Array.from({ length: max }, (_, i) => i + 1);
+  return (
+    <div className="ck-levels" role="list" aria-label="Уровни бизнеса">
+      {nums.map((n) => {
+        const passed = n <= level;
+        return (
+          <span key={n} role="listitem"
+                className={`ck-lvl${passed ? " is-passed" : ""}`}
+                title={passed ? `Уровень ${n} пройден` : `Уровень ${n}`}>
+            {passed ? <CheckIcon size={13} color="#0b160b" /> : n}
+          </span>
+        );
+      })}
     </div>
   );
 }

@@ -3,7 +3,7 @@
 Использует изолированную БД (in-memory), чтобы не трогать рабочий club.db.
 """
 
-from app.config import ADMIN_EMAIL, ADMIN_PASSWORD
+from app.config import ADMIN_EMAIL, ADMIN_PASSWORD, DEMO_EMAIL, DEMO_PASSWORD
 
 # engine/app/client живут в conftest.py (общие на всю сессию).
 
@@ -115,6 +115,107 @@ def test_admin_stats(client):
     stats = r.json()
     assert stats["total_users"] >= 1
     assert stats["quiz_completed"] >= 1
+
+
+def test_profile_flow_and_required_fields(client):
+    admin = _login(client, ADMIN_EMAIL, ADMIN_PASSWORD)
+    client.post("/admin/users",
+                json={"email": "profile@club.ru", "password": "pass12345"},
+                headers=_auth(admin))
+    token = _login(client, "profile@club.ru", "pass12345")
+
+    # до заполнения анкеты — completed=false
+    r = client.get("/me/profile", headers=_auth(token))
+    assert r.status_code == 200 and r.json()["completed"] is False
+
+    # пропуск обязательного поля -> 422 (валидация схемы)
+    r = client.put("/me/profile",
+                   json={"first_name": "Иван", "last_name": "",
+                         "business_name": "ООО Ромашка", "business_field": "Услуги",
+                         "birth_date": "1990-01-01"},
+                   headers=_auth(token))
+    assert r.status_code == 422
+
+    # без даты рождения -> 422
+    r = client.put("/me/profile",
+                   json={"first_name": "Иван", "last_name": "Иванов",
+                         "business_name": "ООО Ромашка", "business_field": "Услуги"},
+                   headers=_auth(token))
+    assert r.status_code == 422
+
+    # корректная анкета -> completed=true, данные сохранены
+    r = client.put("/me/profile",
+                   json={"first_name": "Иван", "last_name": "Иванов",
+                         "business_name": "ООО Ромашка", "business_field": "Услуги",
+                         "birth_date": "1990-01-01"},
+                   headers=_auth(token))
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["completed"] is True
+    assert data["business_name"] == "ООО Ромашка"
+
+    # анкета видна в админской таблице пользователей
+    r = client.get("/admin/users", headers=_auth(admin))
+    row = next(u for u in r.json() if u["email"] == "profile@club.ru")
+    assert row["profile_completed"] is True
+    assert row["last_name"] == "Иванов"
+    assert row["business_field"] == "Услуги"
+
+
+def test_admin_can_edit_profile(client):
+    admin = _login(client, ADMIN_EMAIL, ADMIN_PASSWORD)
+    r = client.post("/admin/users",
+                    json={"email": "editme@club.ru", "password": "pass12345"},
+                    headers=_auth(admin))
+    uid = r.json()["id"]
+    r = client.patch(f"/admin/users/{uid}",
+                     json={"first_name": "Пётр", "business_name": "Кофейня «Бодрый»"},
+                     headers=_auth(admin))
+    assert r.status_code == 200, r.text
+    assert r.json()["first_name"] == "Пётр"
+    assert r.json()["business_name"] == "Кофейня «Бодрый»"
+
+
+def test_residents_band_and_demo(client):
+    admin = _login(client, ADMIN_EMAIL, ADMIN_PASSWORD)
+    client.post("/admin/users",
+                json={"email": "res@club.ru", "password": "pass12345"},
+                headers=_auth(admin))
+    token = _login(client, "res@club.ru", "pass12345")
+    # без анкеты эндпоинт всё равно отвечает списком
+    r = client.get("/me/residents", headers=_auth(token))
+    assert r.status_code == 200 and isinstance(r.json(), list)
+
+    # демо-логин: заполненный профиль, вымышленный дашборд и резиденты
+    demo = _login(client, DEMO_EMAIL, DEMO_PASSWORD)
+    r = client.get("/me/profile", headers=_auth(demo))
+    assert r.json()["completed"] is True and r.json()["business_name"]
+    r = client.get("/me/dashboard", headers=_auth(demo))
+    assert r.json()["quiz_taken"] is True and r.json()["experience"]["level"] == 6
+    r = client.get("/me/residents", headers=_auth(demo))
+    residents = r.json()
+    assert len(residents) >= 3
+    # фильтр по сфере работает
+    r = client.get("/me/residents", params={"field": "Юридические услуги"},
+                   headers=_auth(demo))
+    assert all(x["business_field"] == "Юридические услуги" for x in r.json())
+
+
+def test_user_can_upload_photo(client):
+    admin = _login(client, ADMIN_EMAIL, ADMIN_PASSWORD)
+    client.post("/admin/users",
+                json={"email": "photo@club.ru", "password": "pass12345"},
+                headers=_auth(admin))
+    token = _login(client, "photo@club.ru", "pass12345")
+    png = bytes.fromhex(
+        "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489"
+        "0000000a49444154789c6360000002000154a24f9f0000000049454e44ae426082"
+    )
+    r = client.post("/me/upload",
+                    files={"file": ("me.png", png, "image/png")},
+                    headers=_auth(token))
+    assert r.status_code == 200, r.text
+    assert r.json()["url"].startswith("/club/api/uploads/")
 
 
 def test_admin_can_edit_cards_and_hints(client):

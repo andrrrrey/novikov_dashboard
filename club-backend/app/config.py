@@ -16,6 +16,11 @@ UPLOAD_DIR = os.getenv("UPLOAD_DIR", "./uploads")
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "admin@club.ru")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin12345")
 
+# Демо-резидент: логин+пароль для показа. Дашборд/профиль/резиденты у него
+# полностью вымышленные (см. app/demo.py), без привязки к GetCourse и админке.
+DEMO_EMAIL = os.getenv("DEMO_EMAIL", "demo@club.ru")
+DEMO_PASSWORD = os.getenv("DEMO_PASSWORD", "demo12345")
+
 # GetCourse: домен и ключ задаются в админке (таблица Setting), не здесь.
 # Тут только флаг фонового планировщика (в тестах отключаем, чтобы не ходить в сеть)
 # и дефолтный период опроса, если он не задан в настройках.

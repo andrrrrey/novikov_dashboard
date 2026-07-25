@@ -50,6 +50,24 @@ export const api = {
   submitQuiz: (answers) => request("/quiz/submit", { method: "POST", body: { answers } }),
   dashboard: () => request("/me/dashboard"),
 
+  // Анкета / профиль резидента
+  getProfile: () => request("/me/profile"),
+  saveProfile: (patch) => request("/me/profile", { method: "PUT", body: patch }),
+  uploadMyPhoto: (file) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return request("/me/upload", { method: "POST", formData: fd });
+  },
+
+  // Резиденты (похожие по уровню) — поиск q, фильтр по сфере field
+  residents: ({ q = "", field = "" } = {}) => {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (field) params.set("field", field);
+    const qs = params.toString();
+    return request(`/me/residents${qs ? `?${qs}` : ""}`);
+  },
+
   listUsers: () => request("/admin/users"),
   createUser: (email, password) => request("/admin/users", { method: "POST", body: { email, password } }),
   updateUser: (id, patch) => request(`/admin/users/${id}`, { method: "PATCH", body: patch }),

@@ -16,20 +16,26 @@ from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session, select
 
-from app.config import GETCOURSE_POLL_HOURS_DEFAULT, GETCOURSE_SYNC_ENABLED, UPLOAD_DIR
+from app.config import (
+    DEMO_EMAIL, GETCOURSE_POLL_HOURS_DEFAULT, GETCOURSE_SYNC_ENABLED, UPLOAD_DIR,
+)
 from app.database import get_session, init_db, session_factory
+from app.demo import demo_dashboard, demo_profile, demo_residents
 from app.getcourse import getcourse_scheduler, sync_getcourse
 from app.models import (
-    ContentCard, GcAssignment, GcGroup, QuizResult, TrajectoryHint, User, UserStats,
+    ContentCard, GcAssignment, GcGroup, QuizResult, TrajectoryHint, User, UserProfile,
+    UserStats,
 )
-from app.progress import CATEGORIES, compute_user_progress
+from app.progress import (
+    CATEGORIES, business_level, compute_user_progress, exp_assignments,
+)
 from app.quiz_data import QUIZ, answers_to_levels
 from app.schemas import (
     AdminStats, CardAdminOut, CardOut, CardUpdate, CategoryProgress, DashboardOut,
     ExperienceOut, GcGroupOut, GcGroupUpdate, GetCourseOut, GetCourseUpdate, HintOut,
-    HintUpdate, InfoTipsOut, InfoTipsUpdate, KnowledgeOut, ProgressConfigOut,
-    ProgressConfigUpdate, PromoOut,
-    PromoUpdate, QuizOption, QuizQuestionOut, QuizSubmit, SyncOut, TokenResponse,
+    HintUpdate, InfoTipsOut, InfoTipsUpdate, KnowledgeOut, ProfileOut, ProfileUpdate,
+    ProgressConfigOut, ProgressConfigUpdate, PromoOut, PromoUpdate, QuizOption,
+    QuizQuestionOut, QuizSubmit, ResidentOut, SyncOut, TokenResponse,
     UploadOut, UserCreate, UserOut, UserUpdate,
 )
 from app.scoring import evaluate, Aspect
@@ -47,6 +53,21 @@ ALLOWED_IMAGE_TYPES = {
     "image/webp": ".webp",
 }
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 МБ
+
+
+async def _save_image_upload(file: UploadFile) -> str:
+    """Проверить тип/размер картинки, сохранить в UPLOAD_DIR, вернуть внешний URL."""
+    ext = ALLOWED_IMAGE_TYPES.get(file.content_type)
+    if not ext:
+        raise HTTPException(status_code=400,
+                            detail="Допустимы только PNG, JPEG или WEBP")
+    data = await file.read()
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=400, detail="Файл больше 5 МБ")
+    name = f"{uuid.uuid4().hex}{ext}"
+    with open(os.path.join(UPLOAD_DIR, name), "wb") as fh:
+        fh.write(data)
+    return f"/club/api/uploads/{name}"
 
 
 @asynccontextmanager
@@ -206,6 +227,9 @@ def _resolve_promo_link(session: Session, aspect: str, level: int) -> Optional[s
 
 
 def _build_dashboard(user: User, session: Session) -> DashboardOut:
+    if user.email == DEMO_EMAIL:
+        return demo_dashboard()
+
     title = _promo_title(session)
     tips = _info_tips(session)
 
@@ -273,10 +297,127 @@ def _build_dashboard(user: User, session: Session) -> DashboardOut:
     )
 
 
+# --------------------------------------------------- Профиль резидента (анкета)
+def _profile_out(profile: Optional[UserProfile]) -> ProfileOut:
+    if profile is None:
+        return ProfileOut(completed=False)
+    return ProfileOut(
+        completed=profile.completed,
+        first_name=profile.first_name, last_name=profile.last_name,
+        business_name=profile.business_name, business_field=profile.business_field,
+        birth_date=profile.birth_date, photo_url=profile.photo_url,
+    )
+
+
+@app.get("/me/profile", response_model=ProfileOut)
+def get_profile(
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    if user.email == DEMO_EMAIL:
+        return demo_profile()
+    return _profile_out(session.get(UserProfile, user.id))
+
+
+@app.put("/me/profile", response_model=ProfileOut)
+def save_profile(
+    payload: ProfileUpdate,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    if user.email == DEMO_EMAIL:
+        # Демо-профиль read-only — анкету не показываем и не сохраняем.
+        return demo_profile()
+    profile = session.get(UserProfile, user.id)
+    if profile is None:
+        profile = UserProfile(user_id=user.id)
+    profile.first_name = payload.first_name
+    profile.last_name = payload.last_name
+    profile.business_name = payload.business_name
+    profile.business_field = payload.business_field
+    profile.birth_date = payload.birth_date
+    profile.photo_url = payload.photo_url or None
+    profile.completed = True
+    session.add(profile)
+    session.commit()
+    session.refresh(profile)
+    return _profile_out(profile)
+
+
+@app.post("/me/upload", response_model=UploadOut)
+async def upload_my_photo(
+    file: UploadFile,
+    _: User = Depends(get_current_user),
+):
+    return UploadOut(url=await _save_image_upload(file))
+
+
+# ------------------------------------------------ Резиденты (похожие по уровню)
+@app.get("/me/residents", response_model=list[ResidentOut])
+def list_residents(
+    q: str = "",
+    field: str = "",
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    if user.email == DEMO_EMAIL:
+        return demo_residents(q, field)
+
+    exp_map = exp_assignments(session)
+    my_level = business_level(session, user, exp_map)
+
+    q_norm = (q or "").strip().lower()
+    field_norm = (field or "").strip().lower()
+
+    profiles = {p.user_id: p for p in session.exec(select(UserProfile)).all()}
+    out: list[ResidentOut] = []
+    for u in session.exec(select(User).where(User.role == "user")).all():
+        if u.id == user.id or u.email == DEMO_EMAIL:
+            continue
+        profile = profiles.get(u.id)
+        if profile is None or not profile.completed:
+            continue
+        level = business_level(session, u, exp_map)
+        if abs(level - my_level) > 1:   # «примерно такой же уровень» = ±1
+            continue
+        name = f"{profile.first_name} {profile.last_name}".strip().lower()
+        if q_norm and q_norm not in name \
+                and q_norm not in profile.business_name.lower() \
+                and q_norm not in profile.business_field.lower():
+            continue
+        if field_norm and field_norm != profile.business_field.strip().lower():
+            continue
+        out.append(ResidentOut(
+            id=u.id, first_name=profile.first_name, last_name=profile.last_name,
+            business_name=profile.business_name, business_field=profile.business_field,
+            photo_url=profile.photo_url, business_level=level,
+        ))
+    out.sort(key=lambda r: (r.last_name, r.first_name))
+    return out
+
+
 # ------------------------------------------------------------------- Админка
 def _influence(session: Session, user_id: int) -> int:
     stats = session.get(UserStats, user_id)
     return stats.influence if stats else 0
+
+
+def _user_out(
+    user: User, *, quiz_taken: bool, influence: int,
+    profile: Optional[UserProfile] = None,
+) -> UserOut:
+    p = profile
+    return UserOut(
+        id=user.id, email=user.email, role=user.role, created_at=user.created_at,
+        quiz_taken=quiz_taken, influence=influence,
+        profile_completed=bool(p and p.completed),
+        first_name=p.first_name if p else "",
+        last_name=p.last_name if p else "",
+        business_name=p.business_name if p else "",
+        business_field=p.business_field if p else "",
+        birth_date=p.birth_date if p else None,
+        photo_url=p.photo_url if p else None,
+    )
 
 
 @app.get("/admin/users", response_model=list[UserOut])
@@ -284,9 +425,10 @@ def list_users(_: User = Depends(require_admin), session: Session = Depends(get_
     users = session.exec(select(User).order_by(User.created_at)).all()
     taken_ids = {r.user_id for r in session.exec(select(QuizResult)).all()}
     influence = {s.user_id: s.influence for s in session.exec(select(UserStats)).all()}
+    profiles = {p.user_id: p for p in session.exec(select(UserProfile)).all()}
     return [
-        UserOut(id=u.id, email=u.email, role=u.role, created_at=u.created_at,
-                quiz_taken=u.id in taken_ids, influence=influence.get(u.id, 0))
+        _user_out(u, quiz_taken=u.id in taken_ids, influence=influence.get(u.id, 0),
+                  profile=profiles.get(u.id))
         for u in users
     ]
 
@@ -304,8 +446,7 @@ def create_user(
     session.add(user)
     session.commit()
     session.refresh(user)
-    return UserOut(id=user.id, email=user.email, role=user.role,
-                   created_at=user.created_at, quiz_taken=False, influence=0)
+    return _user_out(user, quiz_taken=False, influence=0)
 
 
 @app.patch("/admin/users/{user_id}", response_model=UserOut)
@@ -332,14 +473,27 @@ def update_user(
         else:
             stats.influence = payload.influence
         session.add(stats)
+
+    # Правка анкеты админом: меняем только явно переданные поля.
+    profile_fields = ("first_name", "last_name", "business_name",
+                      "business_field", "birth_date", "photo_url")
+    data = payload.model_dump(exclude_unset=True)
+    if any(f in data for f in profile_fields):
+        profile = session.get(UserProfile, user.id)
+        if profile is None:
+            profile = UserProfile(user_id=user.id)
+        for f in profile_fields:
+            if f in data:
+                setattr(profile, f, data[f])
+        session.add(profile)
+
     session.commit()
     session.refresh(user)
     taken = session.exec(
         select(QuizResult).where(QuizResult.user_id == user.id)
     ).first() is not None
-    return UserOut(id=user.id, email=user.email, role=user.role,
-                   created_at=user.created_at, quiz_taken=taken,
-                   influence=_influence(session, user.id))
+    return _user_out(user, quiz_taken=taken, influence=_influence(session, user.id),
+                     profile=session.get(UserProfile, user.id))
 
 
 @app.delete("/admin/users/{user_id}", status_code=204)
@@ -361,6 +515,9 @@ def delete_user(
     stats = session.get(UserStats, user_id)
     if stats:
         session.delete(stats)
+    profile = session.get(UserProfile, user_id)
+    if profile:
+        session.delete(profile)
     session.delete(user)
     session.commit()
 
@@ -445,18 +602,7 @@ async def upload_cover(
     file: UploadFile,
     _: User = Depends(require_admin),
 ):
-    ext = ALLOWED_IMAGE_TYPES.get(file.content_type)
-    if not ext:
-        raise HTTPException(status_code=400,
-                            detail="Допустимы только PNG, JPEG или WEBP")
-    data = await file.read()
-    if len(data) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=400, detail="Файл больше 5 МБ")
-
-    name = f"{uuid.uuid4().hex}{ext}"
-    with open(os.path.join(UPLOAD_DIR, name), "wb") as fh:
-        fh.write(data)
-    return UploadOut(url=f"/club/api/uploads/{name}")
+    return UploadOut(url=await _save_image_upload(file))
 
 
 # ------------------------------------------- Админка: баннер «Повышайте свой уровень»
