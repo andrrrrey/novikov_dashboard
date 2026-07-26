@@ -774,9 +774,12 @@ def update_progress_config(
     _: User = Depends(require_admin),
     session: Session = Depends(get_session),
 ):
-    # полная перезапись назначений
+    # полная перезапись назначений. Удаления выполняем в БД до вставок
+    # (session.flush), иначе повторное добавление тех же (track, category, level,
+    # gc_group_id) конфликтует с ещё не удалёнными строками по UNIQUE-констрейнту.
     for a in session.exec(select(GcAssignment)).all():
         session.delete(a)
+    session.flush()
     for category, levels in (payload.exp or {}).items():
         if category not in CATEGORIES:
             continue
