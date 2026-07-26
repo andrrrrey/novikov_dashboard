@@ -89,42 +89,48 @@ export default function DashboardV2() {
         <section className="ck-stats">
           {exp && (
             <div className="ck-exp-hero">
-              <LevelBadge value={exp.score ?? 0} />
-              <div className="ck-exp-main">
+              <div className="ck-exp-top">
                 <span className="ck-exp-kicker">
                   <ExpIcon color={C_EXP} size={15} />
                   <span className="ck-exp-kicker-txt">Уровень вашего бизнеса</span>
                   <InfoTip text={data.info_business} accent={C_EXP} />
                 </span>
-                <div className="ck-xp">
-                  <div className="ck-xp-track">
-                    <div className="ck-xp-fill" style={{ width: `${expPct}%` }} />
-                  </div>
-                  <span className="ck-xp-num">{exp.done} / {exp.total}</span>
-                </div>
-                <span className="ck-xp-cap">материалов пройдено до следующего уровня</span>
-                <span className="ck-exp-days">
-                  Вы находитесь <b>{exp.days_on_level} {pluralDays(exp.days_on_level)}</b> на этом уровне
-                </span>
-                <LevelTrack level={exp.level ?? 0} max={exp.max_level ?? 0} />
+                <LevelBadge value={exp.score ?? 0} />
               </div>
+              <LevelTrack level={exp.level ?? 0} max={exp.max_level ?? 0} />
+              <div className="ck-xp">
+                <div className="ck-xp-track">
+                  <div className="ck-xp-fill" style={{ width: `${expPct}%` }} />
+                </div>
+                <span className="ck-xp-num">{exp.done} / {exp.total}</span>
+              </div>
+              <span className="ck-xp-cap">материалов пройдено до следующего уровня</span>
+              <span className="ck-exp-days">
+                Вы находитесь <b>{exp.days_on_level} {pluralDays(exp.days_on_level)}</b> на этом уровне
+              </span>
             </div>
           )}
 
           <div className="ck-mini-row">
             <div className="ck-mini" style={{ "--ic": C_KNOW }}>
               <span className="ck-mini-ic"><KnowledgeIcon color={C_KNOW} size={20} /></span>
-              <span className="ck-mini-lbl">Знания</span>
-              <InfoTip text={data.info_knowledge} accent={C_KNOW} />
-              <span className="ck-mini-val" style={{ color: C_KNOW }}>
-                {kn ? kn.done : 0}
-              </span>
+              <div className="ck-mini-body">
+                <span className="ck-mini-top">
+                  <span className="ck-mini-lbl">Знания</span>
+                  <InfoTip text={data.info_knowledge} accent={C_KNOW} />
+                </span>
+                <span className="ck-mini-val" style={{ color: C_KNOW }}>{kn ? kn.done : 0}</span>
+              </div>
             </div>
             <div className="ck-mini" style={{ "--ic": C_INFL }}>
               <span className="ck-mini-ic"><InfluenceIcon color={C_INFL} size={20} /></span>
-              <span className="ck-mini-lbl">Влияние</span>
-              <InfoTip text={data.info_influence} accent={C_INFL} />
-              <span className="ck-mini-val" style={{ color: C_INFL }}>{data.influence ?? 0}</span>
+              <div className="ck-mini-body">
+                <span className="ck-mini-top">
+                  <span className="ck-mini-lbl">Влияние</span>
+                  <InfoTip text={data.info_influence} accent={C_INFL} />
+                </span>
+                <span className="ck-mini-val" style={{ color: C_INFL }}>{data.influence ?? 0}</span>
+              </div>
             </div>
           </div>
 
@@ -356,18 +362,21 @@ function AvatarModal({ profile, onPhoto, onClose }) {
   );
 }
 
-// Дорожка уровней 1..max: пройденные (n ≤ level) с галочкой, остальные — тусклые.
+// Дорожка уровней 1..max. Уровень бизнеса = минимум направлений:
+// n < level — пройден (галочка), n === level — текущий (подсветка), n > level — впереди (тускло).
 function LevelTrack({ level, max }) {
   if (!max || max < 1) return null;
   const nums = Array.from({ length: max }, (_, i) => i + 1);
   return (
     <div className="ck-levels" role="list" aria-label="Уровни бизнеса">
       {nums.map((n) => {
-        const passed = n <= level;
+        const passed = n < level;
+        const current = n === level;
+        const cls = passed ? " is-passed" : current ? " is-current" : "";
+        const title = passed ? `Уровень ${n} пройден`
+          : current ? `Уровень ${n} — текущий` : `Уровень ${n}`;
         return (
-          <span key={n} role="listitem"
-                className={`ck-lvl${passed ? " is-passed" : ""}`}
-                title={passed ? `Уровень ${n} пройден` : `Уровень ${n}`}>
+          <span key={n} role="listitem" className={`ck-lvl${cls}`} title={title}>
             {passed ? <CheckIcon size={13} color="#0b160b" /> : n}
           </span>
         );
