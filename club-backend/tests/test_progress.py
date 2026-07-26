@@ -89,10 +89,10 @@ def test_category_capped_when_no_next_level():
         assert (mgmt["level"], mgmt["done"], mgmt["total"]) == (1, 1, 1)   # бар полный, стоим
 
 
-def test_experience_sum_and_knowledge_flat():
+def test_experience_min_level_and_knowledge_flat():
     with Session(test_engine) as s:
         _clear(s)
-        u = _mk_user(s, "expsum@x.ru", m=1, sa=1, mg=2)
+        u = _mk_user(s, "expmin@x.ru", m=1, sa=1, mg=2)
         for i in range(1, 7):
             s.add(GcGroup(gc_id=i, name=f"g{i}", lesson_number=0))
         _assign(s, "exp", "management", 2, [1, 2])
@@ -103,10 +103,10 @@ def test_experience_sum_and_knowledge_flat():
             s.add(LessonView(email=u.email, gc_group_id=g, user_id=u.id))
         s.commit()
         p = compute_user_progress(s, u)
-        # менеджмент 2→3, продажи 1, маркетинг 1 → сумма 5
-        assert p["experience"]["level"] == 5
-        # пройдено 2 из 4 уникальных групп опыта {1,2,3,4}
-        assert (p["experience"]["done"], p["experience"]["total"]) == (2, 4)
+        # менеджмент 2→3, продажи 1, маркетинг 1 → уровень бизнеса = минимум = 1
+        assert p["experience"]["level"] == 1
+        # полоса «до следующего уровня» — по направлениям на ур.1: продажи (0/1) + маркетинг (0/0)
+        assert (p["experience"]["done"], p["experience"]["total"]) == (0, 1)
         # знания: 1 из 2
         assert p["knowledge"] == {"done": 1, "total": 2}
 

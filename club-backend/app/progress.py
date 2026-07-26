@@ -82,22 +82,21 @@ def category_progress(
         return level, done, len(groups)
 
 
-def experience(
-    exp_map: dict[tuple[str, int], set[int]],
-    completed: set[int],
-    cat_levels: dict[str, int],
-) -> tuple[int, int, int]:
+def experience(categories: list[dict]) -> tuple[int, int, int]:
     """
-    Вернуть (exp_level, пройдено, всего) для большого бара «Опыт».
-    exp_level = сумма уровней категорий; бар — по всем уникальным группам опыта.
+    Вернуть (уровень_бизнеса, пройдено, всего) для плашки «Уровень вашего бизнеса».
+
+    Уровень бизнеса = минимальный уровень среди трёх направлений (узкое место): резидент
+    поднимается только когда подтянуто самое слабое направление. Полоса «до следующего уровня» —
+    материалы направлений, стоящих на этом минимальном уровне (именно они гейтят рост).
     """
-    exp_level = sum(cat_levels.values())
-    all_groups: set[int] = set()
-    for groups in exp_map.values():
-        all_groups |= groups
-    total = len(all_groups)
-    done = len(all_groups & completed)
-    return exp_level, done, total
+    if not categories:
+        return 0, 0, 0
+    business_lvl = min(c["level"] for c in categories)
+    gating = [c for c in categories if c["level"] == business_lvl]
+    done = sum(c["done"] for c in gating)
+    total = sum(c["total"] for c in gating)
+    return business_lvl, done, total
 
 
 def knowledge(session: Session, completed: set[int]) -> tuple[int, int]:
@@ -146,17 +145,17 @@ def business_level(
     session: Session, user: User, exp_map: dict[tuple[str, int], set[int]]
 ) -> int:
     """
-    Уровень бизнеса резидента = сумма уровней трёх категорий. Read-only:
-    не трогает UserStats (в отличие от compute_user_progress). exp_map передаётся
+    Уровень бизнеса резидента = минимальный уровень среди трёх категорий (узкое место).
+    Read-only: не трогает UserStats (в отличие от compute_user_progress). exp_map передаётся
     снаружи, чтобы посчитать один раз на список пользователей.
     """
     completed = completed_ids(session, user.email)
     quiz_levels = _quiz_levels(session, user)
-    total = 0
-    for cat in CATEGORIES:
-        level, _done, _tot = category_progress(exp_map, completed, cat, quiz_levels[cat])
-        total += level
-    return total
+    levels = [
+        category_progress(exp_map, completed, cat, quiz_levels[cat])[0]
+        for cat in CATEGORIES
+    ]
+    return min(levels) if levels else 0
 
 
 def exp_assignments(session: Session) -> dict[tuple[str, int], set[int]]:
@@ -174,16 +173,14 @@ def compute_user_progress(session: Session, user: User) -> dict:
     quiz_levels = _quiz_levels(session, user)
 
     categories = []
-    cat_levels: dict[str, int] = {}
     for cat in CATEGORIES:
         level, done, total = category_progress(exp_map, completed, cat, quiz_levels[cat])
-        cat_levels[cat] = level
         categories.append({
             "aspect": cat, "label": CATEGORY_LABELS[cat],
             "level": level, "done": done, "total": total,
         })
 
-    exp_level, exp_done, exp_total = experience(exp_map, completed, cat_levels)
+    exp_level, exp_done, exp_total = experience(categories)
     influence, since = refresh_exp_level(session, user, exp_level)
     days_on_level = max(0, (datetime.now(timezone.utc) - _aware(since)).days)
 

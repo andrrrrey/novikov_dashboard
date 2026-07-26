@@ -130,6 +130,6 @@ def _seed_demo(session: Session) -> None:
 
     if session.exec(select(QuizResult).where(QuizResult.user_id == demo.id)).first() is None:
         session.add(QuizResult(
-            user_id=demo.id, marketing_level=3, sales_level=1, management_level=2,
-            bottleneck_aspect="sales", bottleneck_level=1, answers_json="{}",
+            user_id=demo.id, marketing_level=6, sales_level=4, management_level=5,
+            bottleneck_aspect="sales", bottleneck_level=4, answers_json="{}",
         ))

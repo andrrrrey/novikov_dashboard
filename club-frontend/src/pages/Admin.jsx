@@ -5,6 +5,15 @@ import Avatar from "../components/Avatar.jsx";
 
 const ASPECT_LABEL = { marketing: "Маркетинг", sales: "Продажи", management: "Менеджмент" };
 
+// Вкладки админки. «Настройки» объединяет баннер, подсказки к показателям и GetCourse.
+const ADMIN_TABS = [
+  ["users", "Пользователи"],
+  ["progress", "Опыт и Знания"],
+  ["cards", "Карточки траектории"],
+  ["hints", "Подсказки"],
+  ["settings", "Настройки"],
+];
+
 // Склонение: 1 группа, 2 группы, 5 групп.
 function plGroups(n) {
   const a = Math.abs(n) % 100, d = a % 10;
@@ -16,6 +25,7 @@ function plGroups(n) {
 
 export default function Admin() {
   const { logout } = useAuth();
+  const [tab, setTab] = useState("users");
   const [users, setUsers] = useState([]);
   const [stats, setStats] = useState(null);
   const [cards, setCards] = useState([]);
@@ -73,46 +83,65 @@ export default function Admin() {
       </header>
 
       <main className="admin-main">
-        <div className="admin-stats">
-          <Stat label="Резидентов" value={stats?.total_users} />
-          <Stat label="Прошли тест" value={stats?.quiz_completed} accent="var(--green)" />
-          <Stat label="Не прошли" value={stats?.quiz_pending} accent="var(--gold)" />
-        </div>
-
-        <div className="panel admin-block">
-          <h2 className="admin-h2">Добавить резидента</h2>
-          <form className="admin-add" onSubmit={addUser}>
-            <input className="input" type="email" placeholder="email (он же логин)"
-                   value={email} onChange={(e) => setEmail(e.target.value)} required />
-            <input className="input" type="text" placeholder="пароль"
-                   value={password} onChange={(e) => setPassword(e.target.value)} required />
-            <button className="btn btn-primary" disabled={busy}>
-              {busy ? "Добавляем…" : "Создать аккаунт"}
+        <div className="admin-tabs">
+          {ADMIN_TABS.map(([id, label]) => (
+            <button key={id} type="button"
+                    className={`admin-tab${tab === id ? " is-active" : ""}`}
+                    onClick={() => setTab(id)}>
+              {label}
             </button>
-          </form>
-          {error && <div className="login-error">{error}</div>}
+          ))}
         </div>
 
-        <div className="panel admin-block">
-          <h2 className="admin-h2">Пользователи</h2>
-          <p className="muted admin-note">
-            Все резиденты клуба с анкетными данными. Можно отредактировать профиль, сбросить
-            пароль, задать «Влияние» или удалить.
-          </p>
-          <div className="admin-users">
-            {users.map((u) => (
-              <UserRow key={u.id} user={u} onReload={reload} onError={setError}
-                       onResetPassword={resetPassword} onRemove={removeUser} />
-            ))}
-          </div>
-        </div>
+        {error && <div className="login-error admin-error">{error}</div>}
 
-        <ProgressConfigBlock onError={setError} />
-        <PromoBlock onError={setError} />
-        <InfoTipsBlock onError={setError} />
-        <GetCourseBlock onError={setError} />
-        <CardsBlock cards={cards} onError={setError} />
-        <HintsBlock hints={hints} onError={setError} />
+        {tab === "users" && (
+          <>
+            <div className="admin-stats">
+              <Stat label="Резидентов" value={stats?.total_users} />
+              <Stat label="Прошли тест" value={stats?.quiz_completed} accent="var(--green)" />
+              <Stat label="Не прошли" value={stats?.quiz_pending} accent="var(--gold)" />
+            </div>
+
+            <div className="panel admin-block">
+              <h2 className="admin-h2">Добавить резидента</h2>
+              <form className="admin-add" onSubmit={addUser}>
+                <input className="input" type="email" placeholder="email (он же логин)"
+                       value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <input className="input" type="text" placeholder="пароль"
+                       value={password} onChange={(e) => setPassword(e.target.value)} required />
+                <button className="btn btn-primary" disabled={busy}>
+                  {busy ? "Добавляем…" : "Создать аккаунт"}
+                </button>
+              </form>
+            </div>
+
+            <div className="panel admin-block">
+              <h2 className="admin-h2">Пользователи</h2>
+              <p className="muted admin-note">
+                Все резиденты клуба с анкетными данными. Можно отредактировать профиль, сбросить
+                пароль, задать «Влияние» или удалить.
+              </p>
+              <div className="admin-users">
+                {users.map((u) => (
+                  <UserRow key={u.id} user={u} onReload={reload} onError={setError}
+                           onResetPassword={resetPassword} onRemove={removeUser} />
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        {tab === "progress" && <ProgressConfigBlock onError={setError} />}
+        {tab === "cards" && <CardsBlock cards={cards} onError={setError} />}
+        {tab === "hints" && <HintsBlock hints={hints} onError={setError} />}
+        {tab === "settings" && (
+          <>
+            <PromoBlock onError={setError} />
+            <InfoTipsBlock onError={setError} />
+            <GetCourseBlock onError={setError} />
+          </>
+        )}
       </main>
     </div>
   );
@@ -834,8 +863,9 @@ function ProgressConfigBlock({ onError }) {
                value={bizMax}
                onChange={(e) => { setBizMax(e.target.value); setSaved(false); }} />
         <p className="muted admin-note" style={{ margin: "8px 0 0" }}>
-          Сумма уровней трёх направлений, при которой уровень бизнеса на дашборде показывает 100.
-          Значение резидента = сумма уровней ÷ этот максимум × 100 (0–100).
+          Максимальный уровень направления (1..N), при котором уровень бизнеса на дашборде равен 100.
+          Уровень бизнеса резидента = его минимальный уровень среди трёх направлений (узкое место)
+          ÷ этот максимум × 100 (0–100). Цифры уровней на дашборде идут от 1 до N.
         </p>
       </div>
 

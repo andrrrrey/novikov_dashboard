@@ -39,26 +39,26 @@ DEMO_PROFILE = {
     "photo_url": DEMO_PHOTO,
 }
 
-# Вымышленные резиденты (уровни рядом с демо-уровнем 6 — band ±1: 5..7).
+# Вымышленные резиденты (уровни рядом с демо-уровнем 4 — band ±1: 3..5).
 _RESIDENTS = [
     {"id": -1, "first_name": "Анна", "last_name": "Соколова",
      "business_name": "Студия дизайна «Контур»", "business_field": "Дизайн и брендинг",
-     "business_level": 6, "photo_url": _avatar("АС", "#a472ff")},
+     "business_level": 4, "photo_url": _avatar("АС", "#a472ff")},
     {"id": -2, "first_name": "Дмитрий", "last_name": "Кузнецов",
      "business_name": "Агентство «ТрафикПро»", "business_field": "Маркетинг и реклама",
-     "business_level": 7, "photo_url": _avatar("ДК", "#6cde52")},
+     "business_level": 5, "photo_url": _avatar("ДК", "#6cde52")},
     {"id": -3, "first_name": "Мария", "last_name": "Волкова",
      "business_name": "Клиника «ЗдоровьеПлюс»", "business_field": "Медицинские услуги",
-     "business_level": 5, "photo_url": _avatar("МВ", "#e7b24c")},
+     "business_level": 3, "photo_url": _avatar("МВ", "#e7b24c")},
     {"id": -4, "first_name": "Сергей", "last_name": "Морозов",
      "business_name": "Логистика «БыстроВоз»", "business_field": "Логистика",
-     "business_level": 6, "photo_url": _avatar("СМ", "#ff6b6b")},
+     "business_level": 4, "photo_url": _avatar("СМ", "#ff6b6b")},
     {"id": -5, "first_name": "Ольга", "last_name": "Новикова",
      "business_name": "Юрфирма «Право и Дело»", "business_field": "Юридические услуги",
-     "business_level": 7, "photo_url": _avatar("ОН", "#3b9eff")},
+     "business_level": 5, "photo_url": _avatar("ОН", "#3b9eff")},
     {"id": -6, "first_name": "Павел", "last_name": "Егоров",
      "business_name": "IT-студия «КодЛаб»", "business_field": "Разработка ПО",
-     "business_level": 5, "photo_url": _avatar("ПЕ", "#a472ff")},
+     "business_level": 3, "photo_url": _avatar("ПЕ", "#a472ff")},
 ]
 
 
@@ -70,25 +70,26 @@ def demo_dashboard() -> DashboardOut:
     """Готовый дашборд с вымышленными числами (уроки «пройдено/не пройдено» и т.п.)."""
     return DashboardOut(
         quiz_taken=True,
-        marketing_level=3, sales_level=1, management_level=2,
-        bottleneck_aspect="sales", bottleneck_level=1, balanced=False,
-        hint="Продажи — ваше узкое место. Вы всё ещё в каждой сделке лично: "
-             "выстройте первый скрипт и передайте часть встреч менеджеру.",
+        marketing_level=6, sales_level=4, management_level=5,
+        bottleneck_aspect="sales", bottleneck_level=4, balanced=False,
+        hint="Продажи — ваше узкое место. Отдел работает, но ключевые сделки всё ещё держатся "
+             "на вас: пропишите стандарты и передайте их руководителю продаж.",
         cards=[
-            CardOut(position=1, title="Первые шаги в продажах. Делегирование и рост выручки",
+            CardOut(position=1, title="Отдел продаж без собственника: роли и регламенты",
                     getcourse_url=None, cover=None),
-            CardOut(position=2, title="Оптимизация воронки продаж. Ключевой этап",
+            CardOut(position=2, title="Скрипты и стандарты: как удержать конверсию без вас",
                     getcourse_url=None, cover=None),
-            CardOut(position=3, title="Разбор кейсов продаж резидента клуба",
+            CardOut(position=3, title="Разбор: как резидент вышел из операционки в продажах",
                     getcourse_url=None, cover=None),
         ],
-        # Уровень бизнеса 6 из 9 (сумма 3+1+2). Прогресс-бар и числа уроков — вымышленные.
-        experience=ExperienceOut(level=6, done=4, total=7, days_on_level=23,
-                                 max_level=9, score=67),
+        # Уровень бизнеса = минимум направлений = 4 (узкое место — продажи) из 10.
+        # Прогресс-бар и числа уроков — вымышленные (материалы продаж на ур.4).
+        experience=ExperienceOut(level=4, done=2, total=5, days_on_level=23,
+                                 max_level=10, score=40),
         categories=[
-            CategoryProgress(aspect="management", label="Менеджмент", level=2, done=2, total=3),
-            CategoryProgress(aspect="sales", label="Продажи", level=1, done=1, total=4),
-            CategoryProgress(aspect="marketing", label="Маркетинг", level=3, done=3, total=5),
+            CategoryProgress(aspect="management", label="Менеджмент", level=5, done=3, total=4),
+            CategoryProgress(aspect="sales", label="Продажи", level=4, done=2, total=5),
+            CategoryProgress(aspect="marketing", label="Маркетинг", level=6, done=4, total=6),
         ],
         knowledge=KnowledgeOut(done=14, total=20),
         influence=128,

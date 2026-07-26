@@ -84,7 +84,8 @@ def test_full_resident_flow(client):
     assert len(data["cards"]) == 3
     assert data["cards"][0]["title"] == "Привлечение клиентов. Вводный урок"
     # Показатели прогресса присутствуют; без назначенных групп — нули. Плашка с дефолтом.
-    assert data["experience"]["level"] == 1 + 2 + 1   # M=1,S=2,Mg=1 из этого теста
+    # Уровень бизнеса = минимум направлений (M=1,S=2,Mg=1) = 1.
+    assert data["experience"]["level"] == 1
     assert data["knowledge"] == {"done": 0, "total": 0}
     assert data["influence"] == 0
     assert data["promo_title"] == "Запустить траекторию развития"
@@ -191,7 +192,7 @@ def test_residents_band_and_demo(client):
     r = client.get("/me/profile", headers=_auth(demo))
     assert r.json()["completed"] is True and r.json()["business_name"]
     r = client.get("/me/dashboard", headers=_auth(demo))
-    assert r.json()["quiz_taken"] is True and r.json()["experience"]["level"] == 6
+    assert r.json()["quiz_taken"] is True and r.json()["experience"]["level"] == 4
     r = client.get("/me/residents", headers=_auth(demo))
     residents = r.json()
     assert len(residents) >= 3
