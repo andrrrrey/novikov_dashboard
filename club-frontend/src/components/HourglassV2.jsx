@@ -15,19 +15,23 @@ const ORDER = ["management", "marketing", "sales"]; // канонический 
 const CX = 160, RIM_RY = 16, TOP_Y = 44, BOT_Y = 392;
 
 // Песочные часы: полуширина каждой из трёх зон зависит от уровня аспекта в ней
-// (1→24, 2→59, 3→94). NECK_Y — вертикальное положение перешейка.
+// по шкале 1..maxLevel (уровень 1 — узко HW_MIN, maxLevel — широко HW_MAX).
+// Полная ширина достигается только на максимуме — иначе виден пинч узкого места.
+// NECK_Y — вертикальное положение перешейка.
 const NECK_Y = 212, HW_MIN = 24, HW_MAX = 94;
-function hwForLevel(level) {
-  const l = Math.max(1, Math.min(3, level));
-  return HW_MIN + ((l - 1) / 2) * (HW_MAX - HW_MIN);
+function hwForLevel(level, maxLevel) {
+  const n = Math.max(1, maxLevel || 1);
+  const l = Math.max(1, Math.min(n, level));
+  const frac = n > 1 ? (l - 1) / (n - 1) : 1;
+  return HW_MIN + frac * (HW_MAX - HW_MIN);
 }
-// Цилиндр (постоянная полуширина)
-const CYL_RX = 76;
 
 const VB_TOP = 16, VB_H = 408;
 
-function surfaceY(zone, level) {
-  return zone[1] - (level / 3) * (zone[1] - zone[0]);
+// Уровень жидкости в зоне — доля level / maxLevel (не больше 1).
+function surfaceY(zone, level, maxLevel) {
+  const frac = Math.min(1, level / Math.max(1, maxLevel || 1));
+  return zone[1] - frac * (zone[1] - zone[0]);
 }
 function pct(y) {
   return Math.min(94, Math.max(6, ((y - VB_TOP) / VB_H) * 100));
@@ -52,13 +56,13 @@ function hourglassGeo(topRx, neckHW, botRx) {
   };
 }
 
-function cylinderGeo() {
+function cylinderGeo(rx) {
   const SIL =
-    `M${CX - CYL_RX},${TOP_Y} L${CX + CYL_RX},${TOP_Y}` +
-    ` L${CX + CYL_RX},${BOT_Y} L${CX - CYL_RX},${BOT_Y} Z`;
+    `M${CX - rx},${TOP_Y} L${CX + rx},${TOP_Y}` +
+    ` L${CX + rx},${BOT_Y} L${CX - rx},${BOT_Y} Z`;
   const H = (BOT_Y - TOP_Y) / 3;
   return {
-    SIL, hw: () => CYL_RX, topRx: CYL_RX, botRx: CYL_RX,
+    SIL, hw: () => rx, topRx: rx, botRx: rx,
     order: ["top", "mid", "bottom"],
     slots: {
       top:    { yc: TOP_Y + H * 0.5, zone: [TOP_Y, TOP_Y + H] },
@@ -68,7 +72,7 @@ function cylinderGeo() {
   };
 }
 
-export default function HourglassV2({ levels, bottleneck, balanced = false }) {
+export default function HourglassV2({ levels, bottleneck, balanced = false, maxLevel = 10 }) {
   const placement = balanced
     ? { top: ORDER[0], mid: ORDER[1], bottom: ORDER[2] }
     : (() => {
@@ -76,13 +80,13 @@ export default function HourglassV2({ levels, bottleneck, balanced = false }) {
         return { top: rest[0], neck: bottleneck.aspect, bottom: rest[1] };
       })();
 
-  // Ширина каждой зоны песочных часов — по уровню стоящего в ней аспекта.
+  // Ширина каждой зоны песочных часов — по уровню стоящего в ней аспекта (шкала 1..maxLevel).
   const geo = balanced
-    ? cylinderGeo()
+    ? cylinderGeo(hwForLevel(levels[ORDER[0]], maxLevel))
     : hourglassGeo(
-        hwForLevel(levels[placement.top]),
-        hwForLevel(levels[placement.neck]),
-        hwForLevel(levels[placement.bottom]),
+        hwForLevel(levels[placement.top], maxLevel),
+        hwForLevel(levels[placement.neck], maxLevel),
+        hwForLevel(levels[placement.bottom], maxLevel),
       );
 
   const slots = geo.order.map((slot) => {
@@ -91,7 +95,7 @@ export default function HourglassV2({ levels, bottleneck, balanced = false }) {
     return {
       slot, aspect, zone, yc: geo.slots[slot].yc,
       level: levels[aspect],
-      surf: surfaceY(zone, levels[aspect]),
+      surf: surfaceY(zone, levels[aspect], maxLevel),
       isBottleneck: slot === "neck",
       ...ASPECTS[aspect],
     };
@@ -156,7 +160,7 @@ export default function HourglassV2({ levels, bottleneck, balanced = false }) {
                   fill={`url(#liqV2-${s.aspect})`} />
           ))}
           {balanced ? (
-            <rect x={CX - CYL_RX + 10} y={TOP_Y} width="16" height={BOT_Y - TOP_Y}
+            <rect x={CX - geo.topRx + 10} y={TOP_Y} width="16" height={BOT_Y - TOP_Y}
                   fill="url(#shineV2)" opacity="0.35" />
           ) : (
             <>
