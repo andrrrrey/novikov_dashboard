@@ -3,6 +3,7 @@ import { api } from "../api/client.js";
 import { useAuth } from "../auth/AuthContext.jsx";
 import Avatar from "../components/Avatar.jsx";
 import MobileNav from "../components/MobileNav.jsx";
+import TopNav from "../components/TopNav.jsx";
 import "../styles/dashboard-v2.css";
 
 export default function Residents() {
@@ -38,6 +39,7 @@ export default function Residents() {
     <div className="dash-wrap ckv2 has-mnav">
       <header className="dash-topbar">
         <div className="dash-brand"><span className="login-dot" /> Клуб · резиденты</div>
+        <TopNav />
         <button className="btn dash-logout" onClick={logout}>Выйти</button>
       </header>
 

@@ -160,6 +160,13 @@ def test_progress_config_endpoint(client):
     assert out["exp"]["management"]["2"] == [103]
     assert out["know"] == [103]
 
+    # повторное сохранение того же состава (например, при правке только
+    # «Максимальный уровень бизнеса») не должно падать по UNIQUE-констрейнту
+    body2 = {**body, "business_level_max": 12}
+    r = client.put("/admin/progress-config", headers=h, json=body2)
+    assert r.status_code == 200, r.text
+    assert r.json()["business_level_max"] == 12
+
     # только админ
     assert client.get("/admin/progress-config").status_code == 401
 
