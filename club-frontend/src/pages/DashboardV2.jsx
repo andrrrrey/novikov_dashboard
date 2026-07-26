@@ -68,11 +68,20 @@ export default function DashboardV2() {
     );
   }
 
+  // Текущие уровни направлений (из прогресса) — согласованы с дорожкой уровней и уровнем бизнеса.
+  const catLevels = Object.fromEntries((data.categories || []).map((c) => [c.aspect, c.level]));
   const levels = {
-    management: data.management_level,
-    marketing: data.marketing_level,
-    sales: data.sales_level,
+    management: catLevels.management ?? data.management_level ?? 1,
+    marketing: catLevels.marketing ?? data.marketing_level ?? 1,
+    sales: catLevels.sales ?? data.sales_level ?? 1,
   };
+  // Узкое место для часов = направление с минимальным текущим уровнем
+  // (приоритет — узкому месту из теста, если оно среди минимумов).
+  const minLevel = Math.min(levels.management, levels.marketing, levels.sales);
+  const neckAspect = [data.bottleneck_aspect, "management", "marketing", "sales"]
+    .find((a) => a && levels[a] === minLevel);
+  const hgBalanced =
+    levels.management === levels.marketing && levels.marketing === levels.sales;
   const cleanHint = (data.hint || "").replace(/^Узкое место:[^.]*\.\s*/, "");
   const exp = data.experience;
   const kn = data.knowledge;
@@ -141,8 +150,9 @@ export default function DashboardV2() {
         <div className="ck-viz-hg">
           <HourglassV2
             levels={levels}
-            bottleneck={{ aspect: data.bottleneck_aspect, level: data.bottleneck_level }}
-            balanced={data.balanced}
+            bottleneck={{ aspect: neckAspect, level: minLevel }}
+            balanced={hgBalanced}
+            maxLevel={exp?.max_level ?? 10}
           />
         </div>
 
