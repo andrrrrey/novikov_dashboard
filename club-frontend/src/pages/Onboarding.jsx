@@ -8,7 +8,7 @@ export default function Onboarding() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
     last_name: "", first_name: "", business_name: "",
-    business_field: "", birth_date: "", photo_url: "",
+    business_field: "", birth_date: "", photo_url: "", telegram: "",
   });
   const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -57,6 +57,7 @@ export default function Onboarding() {
         business_field: form.business_field.trim(),
         birth_date: form.birth_date,
         photo_url: form.photo_url || null,
+        telegram: form.telegram.trim() || null,
       });
       navigate("/", { replace: true });
     } catch (err) {
@@ -114,6 +115,11 @@ export default function Onboarding() {
             <span className="label">Дата рождения *</span>
             <input className="input" type="date" value={form.birth_date}
                    onChange={(e) => set("birth_date", e.target.value)} required />
+          </label>
+          <label className="onb-field">
+            <span className="label">Телеграм</span>
+            <input className="input" placeholder="@username" value={form.telegram}
+                   onChange={(e) => set("telegram", e.target.value)} />
           </label>
         </div>
 

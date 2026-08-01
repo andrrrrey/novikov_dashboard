@@ -201,6 +201,34 @@ def test_residents_band_and_demo(client):
                    headers=_auth(demo))
     assert all(x["business_field"] == "Юридические услуги" for x in r.json())
 
+    # вкладка «Все резиденты» шире band (±1) и отсортирована по уровню (сильные сверху)
+    near = client.get("/me/residents", params={"scope": "near"}, headers=_auth(demo)).json()
+    allr = client.get("/me/residents", params={"scope": "all"}, headers=_auth(demo)).json()
+    assert len(allr) > len(near)
+    levels = [x["business_level"] for x in allr]
+    assert levels == sorted(levels, reverse=True)
+    # телеграм-ник отдаётся резидентам
+    assert all("telegram" in x for x in allr)
+    assert any(x["telegram"] for x in allr)
+
+
+def test_profile_telegram_roundtrip(client):
+    admin = _login(client, ADMIN_EMAIL, ADMIN_PASSWORD)
+    client.post("/admin/users",
+                json={"email": "tg@club.ru", "password": "pass12345"},
+                headers=_auth(admin))
+    token = _login(client, "tg@club.ru", "pass12345")
+    # ссылку/@ник нормализуем в чистый ник
+    r = client.put("/me/profile",
+                   json={"first_name": "Тест", "last_name": "Телеграмов",
+                         "business_name": "ООО Связь", "business_field": "Услуги",
+                         "birth_date": "1990-01-01", "telegram": "@my_handle"},
+                   headers=_auth(token))
+    assert r.status_code == 200, r.text
+    assert r.json()["telegram"] == "my_handle"
+    # видно в собственном профиле после переоткрытия
+    assert client.get("/me/profile", headers=_auth(token)).json()["telegram"] == "my_handle"
+
 
 def test_user_can_upload_photo(client):
     admin = _login(client, ADMIN_EMAIL, ADMIN_PASSWORD)

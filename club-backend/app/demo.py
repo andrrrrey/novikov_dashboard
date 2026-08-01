@@ -37,28 +37,43 @@ DEMO_PROFILE = {
     "business_field": "Юридические услуги",
     "birth_date": "1988-05-14",
     "photo_url": DEMO_PHOTO,
+    "telegram": "ivan_garant",
 }
 
-# Вымышленные резиденты (уровни рядом с демо-уровнем 4 — band ±1: 3..5).
+# Вымышленные резиденты. Демо-уровень бизнеса = 4, band «рядом» ±1: 3..5.
+# Для вкладки «Все резиденты» добавлены резиденты с уровнями за пределами band.
 _RESIDENTS = [
     {"id": -1, "first_name": "Анна", "last_name": "Соколова",
      "business_name": "Студия дизайна «Контур»", "business_field": "Дизайн и брендинг",
-     "business_level": 4, "photo_url": _avatar("АС", "#a472ff")},
+     "business_level": 4, "photo_url": _avatar("АС", "#a472ff"), "telegram": "anna_kontur"},
     {"id": -2, "first_name": "Дмитрий", "last_name": "Кузнецов",
      "business_name": "Агентство «ТрафикПро»", "business_field": "Маркетинг и реклама",
-     "business_level": 5, "photo_url": _avatar("ДК", "#6cde52")},
+     "business_level": 5, "photo_url": _avatar("ДК", "#6cde52"), "telegram": "dk_traffic"},
     {"id": -3, "first_name": "Мария", "last_name": "Волкова",
      "business_name": "Клиника «ЗдоровьеПлюс»", "business_field": "Медицинские услуги",
-     "business_level": 3, "photo_url": _avatar("МВ", "#e7b24c")},
+     "business_level": 3, "photo_url": _avatar("МВ", "#e7b24c"), "telegram": "maria_health"},
     {"id": -4, "first_name": "Сергей", "last_name": "Морозов",
      "business_name": "Логистика «БыстроВоз»", "business_field": "Логистика",
-     "business_level": 4, "photo_url": _avatar("СМ", "#ff6b6b")},
+     "business_level": 4, "photo_url": _avatar("СМ", "#ff6b6b"), "telegram": "morozov_logi"},
     {"id": -5, "first_name": "Ольга", "last_name": "Новикова",
      "business_name": "Юрфирма «Право и Дело»", "business_field": "Юридические услуги",
-     "business_level": 5, "photo_url": _avatar("ОН", "#3b9eff")},
+     "business_level": 5, "photo_url": _avatar("ОН", "#3b9eff"), "telegram": "olga_law"},
     {"id": -6, "first_name": "Павел", "last_name": "Егоров",
      "business_name": "IT-студия «КодЛаб»", "business_field": "Разработка ПО",
-     "business_level": 3, "photo_url": _avatar("ПЕ", "#a472ff")},
+     "business_level": 3, "photo_url": _avatar("ПЕ", "#a472ff"), "telegram": "pavel_codelab"},
+    # Резиденты вне band — видны только на вкладке «Все резиденты».
+    {"id": -7, "first_name": "Екатерина", "last_name": "Лебедева",
+     "business_name": "Сеть кофеен «Тепло»", "business_field": "Общепит",
+     "business_level": 8, "photo_url": _avatar("ЕЛ", "#6cde52"), "telegram": "kate_teplo"},
+    {"id": -8, "first_name": "Артём", "last_name": "Зайцев",
+     "business_name": "Онлайн-школа «Скилл»", "business_field": "Образование",
+     "business_level": 7, "photo_url": _avatar("АЗ", "#3b9eff"), "telegram": "artem_skill"},
+    {"id": -9, "first_name": "Никита", "last_name": "Белов",
+     "business_name": "Барбершоп «Бритва»", "business_field": "Услуги красоты",
+     "business_level": 2, "photo_url": _avatar("НБ", "#e7b24c"), "telegram": "nikita_barber"},
+    {"id": -10, "first_name": "Виктория", "last_name": "Орлова",
+     "business_name": "Бренд одежды «Нить»", "business_field": "Производство",
+     "business_level": 6, "photo_url": _avatar("ВО", "#a472ff"), "telegram": "vika_nit"},
 ]
 
 
@@ -101,12 +116,19 @@ def demo_dashboard() -> DashboardOut:
     )
 
 
-def demo_residents(q: str = "", field: str = "") -> list[ResidentOut]:
-    """Вымышленный список резидентов с работающим поиском/фильтром."""
+# Демо-уровень бизнеса (см. demo_dashboard) — для band «рядом» ±1.
+_DEMO_LEVEL = 4
+
+
+def demo_residents(q: str = "", field: str = "", scope: str = "near") -> list[ResidentOut]:
+    """Вымышленный список резидентов с работающим поиском/фильтром и вкладками."""
     q = (q or "").strip().lower()
     field = (field or "").strip().lower()
+    all_scope = (scope or "near").strip().lower() == "all"
     out = []
     for r in _RESIDENTS:
+        if not all_scope and abs(r["business_level"] - _DEMO_LEVEL) > 1:
+            continue
         name = f"{r['first_name']} {r['last_name']}".lower()
         if q and q not in name and q not in r["business_name"].lower() \
                 and q not in r["business_field"].lower():
@@ -114,4 +136,8 @@ def demo_residents(q: str = "", field: str = "") -> list[ResidentOut]:
         if field and field != r["business_field"].lower():
             continue
         out.append(ResidentOut(**r))
+    if all_scope:
+        out.sort(key=lambda r: (-r.business_level, r.last_name, r.first_name))
+    else:
+        out.sort(key=lambda r: (r.last_name, r.first_name))
     return out

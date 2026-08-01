@@ -125,7 +125,8 @@ def _seed_demo(session: Session) -> None:
             business_name=DEMO_PROFILE["business_name"],
             business_field=DEMO_PROFILE["business_field"],
             birth_date=date.fromisoformat(DEMO_PROFILE["birth_date"]),
-            photo_url=DEMO_PROFILE["photo_url"], completed=True,
+            photo_url=DEMO_PROFILE["photo_url"],
+            telegram=DEMO_PROFILE.get("telegram", ""), completed=True,
         ))
 
     if session.exec(select(QuizResult).where(QuizResult.user_id == demo.id)).first() is None:

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client.js";
 import { useAuth } from "../auth/AuthContext.jsx";
@@ -49,7 +49,7 @@ export default function DashboardV2() {
     return api.saveProfile({
       first_name: profile.first_name, last_name: profile.last_name,
       business_name: profile.business_name, business_field: profile.business_field,
-      birth_date: profile.birth_date, ...patch,
+      birth_date: profile.birth_date, telegram: profile.telegram || "", ...patch,
     }).then(setProfile);
   }
 
@@ -89,9 +89,11 @@ export default function DashboardV2() {
   const expPct = exp && exp.total > 0 ? Math.min(100, Math.round((exp.done / exp.total) * 100)) : 0;
 
   return (
-    <Shell logout={logout} profile={profile} onPhoto={updateProfile}>
+    <Shell logout={logout} profile={profile} onPhoto={updateProfile} hideProfile>
       <div className="ck">
+        {/* Единая плашка: профиль резидента + заголовок «Состояние бизнеса» */}
         <div className="ck-head">
+          <ProfileHeader profile={profile} onPhoto={updateProfile} embedded />
           <h1 className="ck-title">Состояние бизнеса</h1>
         </div>
 
@@ -105,16 +107,25 @@ export default function DashboardV2() {
                   <span className="ck-exp-kicker-txt">Уровень вашего бизнеса</span>
                   <InfoTip text={data.info_business} accent={C_EXP} />
                 </span>
-                <LevelBadge value={exp.score ?? 0} />
               </div>
+
+              {/* Где пользователь сейчас и куда движется */}
               <LevelTrack level={exp.level ?? 0} max={exp.max_level ?? 0} />
-              <div className="ck-xp">
+
+              {/* Прогресс до следующего уровня: проценты + число материалов */}
+              <div className="ck-xp-block">
+                <div className="ck-xp-head">
+                  <span className="ck-xp-cap">Прогресс до следующего уровня</span>
+                  <span className="ck-xp-pct">{expPct}%</span>
+                </div>
                 <div className="ck-xp-track">
                   <div className="ck-xp-fill" style={{ width: `${expPct}%` }} />
                 </div>
-                <span className="ck-xp-num">{exp.done} / {exp.total}</span>
+                <span className="ck-xp-num">
+                  <b>{exp.done} из {exp.total}</b> материалов пройдено до следующего уровня
+                </span>
               </div>
-              <span className="ck-xp-cap">материалов пройдено до следующего уровня</span>
+
               <span className="ck-exp-days">
                 Вы находитесь <b>{exp.days_on_level} {pluralDays(exp.days_on_level)}</b> на этом уровне
               </span>
@@ -172,31 +183,6 @@ export default function DashboardV2() {
         </div>
       </div>
     </Shell>
-  );
-}
-
-// Эмблема уровня бизнеса: гранёный гекса-щит с оценкой 0..100 внутри.
-function LevelBadge({ value }) {
-  const wide = String(value).length >= 3;
-  return (
-    <div className="ck-exp-badge">
-      <svg viewBox="0 0 56 56" className="ck-exp-badge-svg" aria-hidden="true">
-        <defs>
-          <linearGradient id="ckBadgeFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="rgba(108,222,82,0.28)" />
-            <stop offset="1" stopColor="rgba(108,222,82,0.06)" />
-          </linearGradient>
-        </defs>
-        {/* Шестигранник-щит */}
-        <path className="ck-exp-badge-shape"
-              d="M28 3.5 48.5 15v26L28 52.5 7.5 41V15z"
-              fill="url(#ckBadgeFill)" />
-        {/* Внутренняя грань для «объёма» */}
-        <path className="ck-exp-badge-facet"
-              d="M28 9 43 17.6v20.8L28 47 13 38.4V17.6z" />
-      </svg>
-      <span className={`ck-exp-badge-num${wide ? " is-wide" : ""}`}>{value}</span>
-    </div>
   );
 }
 
@@ -274,7 +260,7 @@ function LevelUp({ data }) {
   return <div className="ck-levelup is-static">{inner}</div>;
 }
 
-function Shell({ children, logout, profile, onPhoto }) {
+function Shell({ children, logout, profile, onPhoto, hideProfile = false }) {
   return (
     <div className="dash-wrap ckv2 has-mnav">
       <header className="dash-topbar">
@@ -284,7 +270,7 @@ function Shell({ children, logout, profile, onPhoto }) {
       </header>
       <main className="ck-main">
         <div className="ck-main-inner">
-          {profile && <ProfileHeader profile={profile} onPhoto={onPhoto} />}
+          {profile && !hideProfile && <ProfileHeader profile={profile} onPhoto={onPhoto} />}
           {children}
         </div>
       </main>
@@ -294,11 +280,12 @@ function Shell({ children, logout, profile, onPhoto }) {
 }
 
 // Шапка профиля: аватар (клик → попап фото), имя и название бизнеса.
-function ProfileHeader({ profile, onPhoto }) {
+// embedded — профиль встроен в плашку «Состояние бизнеса» (общий фон), без своей рамки.
+function ProfileHeader({ profile, onPhoto, embedded = false }) {
   const [open, setOpen] = useState(false);
   const fullName = `${profile.first_name} ${profile.last_name}`.trim() || "Резидент";
   return (
-    <div className="ck-profile">
+    <div className={`ck-profile${embedded ? " is-embedded" : ""}`}>
       <button className="ck-avatar-btn" type="button" onClick={() => setOpen(true)}
               aria-label="Открыть фото профиля">
         <Avatar photoUrl={profile.photo_url} firstName={profile.first_name}
@@ -374,25 +361,48 @@ function AvatarModal({ profile, onPhoto, onClose }) {
   );
 }
 
-// Дорожка уровней 1..max. Уровень бизнеса = минимум направлений:
-// n < level — пройден (галочка), n === level — текущий (подсветка), n > level — впереди (тускло).
+// Дорожка уровней 1..max. Уровень бизнеса = минимум направлений.
+// Явно подписываем, на каком уровне пользователь сейчас, сколько всего уровней
+// и куда он движется (стрелка от текущего уровня к следующему).
+// n < level — пройден (галочка), n === level — текущий (подсветка + «вы здесь»),
+// n > level — впереди (тускло).
 function LevelTrack({ level, max }) {
   if (!max || max < 1) return null;
   const nums = Array.from({ length: max }, (_, i) => i + 1);
+  const atMax = level >= max;
   return (
-    <div className="ck-levels" role="list" aria-label="Уровни бизнеса">
-      {nums.map((n) => {
-        const passed = n < level;
-        const current = n === level;
-        const cls = passed ? " is-passed" : current ? " is-current" : "";
-        const title = passed ? `Уровень ${n} пройден`
-          : current ? `Уровень ${n} — текущий` : `Уровень ${n}`;
-        return (
-          <span key={n} role="listitem" className={`ck-lvl${cls}`} title={title}>
-            {passed ? <CheckIcon size={13} color="#0b160b" /> : n}
-          </span>
-        );
-      })}
+    <div className="ck-levels-block">
+      <div className="ck-levels-lead">
+        <span className="ck-levels-lead-txt">Ваш уровень</span>
+        <span className="ck-levels-lead-val">
+          <b>{level}</b><span className="ck-levels-lead-of"> из {max}</span>
+        </span>
+      </div>
+
+      <div className="ck-levels" role="list" aria-label="Уровни бизнеса">
+        {nums.map((n) => {
+          const passed = n < level;
+          const current = n === level;
+          const cls = passed ? " is-passed" : current ? " is-current" : "";
+          const title = passed ? `Уровень ${n} пройден`
+            : current ? `Уровень ${n} — ваш текущий` : `Уровень ${n}`;
+          return (
+            <Fragment key={n}>
+              <span role="listitem" className={`ck-lvl${cls}`} title={title}>
+                {passed ? <CheckIcon size={13} color="#0b160b" /> : n}
+                {current && <span className="ck-lvl-here">вы&nbsp;здесь</span>}
+              </span>
+              {current && !atMax && <span className="ck-lvl-arrow" aria-hidden="true">→</span>}
+            </Fragment>
+          );
+        })}
+      </div>
+
+      <div className="ck-levels-foot">
+        {atMax
+          ? <span>🎉 Достигнут максимальный уровень — {max} из {max}</span>
+          : <>Всего уровней — {max}. Движетесь к уровню <b>{level + 1}</b></>}
+      </div>
     </div>
   );
 }

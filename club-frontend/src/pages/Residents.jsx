@@ -4,25 +4,38 @@ import { useAuth } from "../auth/AuthContext.jsx";
 import Avatar from "../components/Avatar.jsx";
 import MobileNav from "../components/MobileNav.jsx";
 import TopNav from "../components/TopNav.jsx";
+import { TelegramIcon } from "../components/DashIcons.jsx";
 import "../styles/dashboard-v2.css";
+
+const TABS = [
+  { key: "near", label: "С ближайшим уровнем" },
+  { key: "all", label: "Все резиденты" },
+];
 
 export default function Residents() {
   const { logout } = useAuth();
-  const [all, setAll] = useState(null);   // полный список (для опций фильтра)
+  const [tab, setTab] = useState("near");
+  const [lists, setLists] = useState({});   // кэш по scope: { near: [...], all: [...] }
   const [error, setError] = useState("");
   const [q, setQ] = useState("");
   const [field, setField] = useState("");
 
+  // Ленивая загрузка списка по активной вкладке (с кэшем, чтобы не дёргать API дважды).
   useEffect(() => {
-    api.residents().then(setAll).catch((e) => setError(e.message));
-  }, []);
+    if (lists[tab]) return;
+    api.residents({ scope: tab })
+      .then((data) => setLists((prev) => ({ ...prev, [tab]: data })))
+      .catch((e) => setError(e.message));
+  }, [tab]);
+
+  const all = lists[tab] || null;
 
   const fields = useMemo(() => {
     const set = new Set((all || []).map((r) => r.business_field).filter(Boolean));
     return [...set].sort((a, b) => a.localeCompare(b, "ru"));
   }, [all]);
 
-  // Поиск и фильтр — на клиенте по уже загруженному «похожему по уровню» списку.
+  // Поиск и фильтр — на клиенте по загруженному списку активной вкладки.
   const shown = useMemo(() => {
     const query = q.trim().toLowerCase();
     return (all || []).filter((r) => {
@@ -35,6 +48,10 @@ export default function Residents() {
     });
   }, [all, q, field]);
 
+  const subtitle = tab === "near"
+    ? "Предприниматели с близким уровнем бизнеса — знакомьтесь и обменивайтесь опытом."
+    : "Все резиденты клуба, отсортированы по уровню бизнеса — от сильных к растущим.";
+
   return (
     <div className="dash-wrap ckv2 has-mnav">
       <header className="dash-topbar">
@@ -45,8 +62,19 @@ export default function Residents() {
 
       <main className="ck-main res-main">
         <div className="res">
-          <div className="ck-head"><h1 className="ck-title">Резиденты вашего уровня</h1></div>
-          <p className="muted res-sub">Предприниматели с близким уровнем бизнеса — знакомьтесь и обменивайтесь опытом.</p>
+          <div className="ck-head"><h1 className="ck-title">Резиденты</h1></div>
+
+          <div className="res-tabs" role="tablist">
+            {TABS.map((t) => (
+              <button key={t.key} role="tab" aria-selected={tab === t.key}
+                      className={`res-tab${tab === t.key ? " is-active" : ""}`}
+                      onClick={() => setTab(t.key)}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <p className="muted res-sub">{subtitle}</p>
 
           <div className="res-filters">
             <input className="input res-search" type="search" placeholder="Поиск по имени или бизнесу…"
@@ -74,6 +102,14 @@ export default function Residents() {
                   <div className="res-name">{r.first_name} {r.last_name}</div>
                   <div className="res-biz">{r.business_name}</div>
                   <div className="res-field muted">{r.business_field}</div>
+                  {r.telegram && (
+                    <a className="res-tg" href={`https://t.me/${r.telegram}`}
+                       target="_blank" rel="noreferrer"
+                       aria-label={`Написать ${r.first_name} в телеграм`}>
+                      <TelegramIcon size={15} />
+                      <span>Написать в телеграм</span>
+                    </a>
+                  )}
                 </div>
                 <div className="res-level" title="Уровень бизнеса">
                   <span className="res-level-num">{r.business_level}</span>

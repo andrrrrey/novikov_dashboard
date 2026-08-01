@@ -140,6 +140,18 @@ export function PeopleIcon(props) {
   );
 }
 
+// Телеграм — бумажный самолётик (кнопка «Написать в телеграм» у резидента).
+export function TelegramIcon(props) {
+  const c = props.color || "currentColor";
+  return (
+    <Svg {...props}>
+      <path d="M21.5 4.3 2.8 11.4c-.9.35-.85 1.65.06 1.92l4.6 1.38 1.75 5.2c.2.6 1 .74 1.4.25l2.5-3.05 4.6 3.4c.5.37 1.22.1 1.36-.5L22.9 5.3c.18-.78-.6-1.4-1.4-1Z"
+            fill={c} fillOpacity="0.16" />
+      <path d="m8 14.5 9.5-7.2-6.3 8.1" />
+    </Svg>
+  );
+}
+
 // Подсказка — знак вопроса в кружке (кнопка «?» у показателей).
 export function HelpIcon(props) {
   return (
