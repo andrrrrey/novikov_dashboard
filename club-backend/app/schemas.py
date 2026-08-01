@@ -6,6 +6,18 @@ from typing import Optional
 from pydantic import BaseModel, EmailStr, field_validator
 
 
+def _normalize_telegram(v: Optional[str]) -> Optional[str]:
+    """«@ник», «ник» или ссылку t.me/ник приводим к чистому нику без @."""
+    if v is None:
+        return None
+    v = v.strip()
+    for prefix in ("https://t.me/", "http://t.me/", "t.me/", "@"):
+        if v.lower().startswith(prefix):
+            v = v[len(prefix):]
+            break
+    return v.strip()
+
+
 # --- Авторизация ---
 class TokenResponse(BaseModel):
     access_token: str
@@ -31,6 +43,12 @@ class UserUpdate(BaseModel):
     business_field: Optional[str] = None
     birth_date: Optional[date] = None
     photo_url: Optional[str] = None
+    telegram: Optional[str] = None
+
+    @field_validator("telegram")
+    @classmethod
+    def _clean_telegram(cls, v: Optional[str]) -> Optional[str]:
+        return _normalize_telegram(v)
 
 
 class UserOut(BaseModel):
@@ -48,6 +66,7 @@ class UserOut(BaseModel):
     business_field: str = ""
     birth_date: Optional[date] = None
     photo_url: Optional[str] = None
+    telegram: str = ""
 
 
 # --- Анкета резидента (онбординг + профиль) ---
@@ -59,6 +78,7 @@ class ProfileOut(BaseModel):
     business_field: str = ""
     birth_date: Optional[date] = None
     photo_url: Optional[str] = None
+    telegram: str = ""
 
 
 class ProfileUpdate(BaseModel):
@@ -68,6 +88,7 @@ class ProfileUpdate(BaseModel):
     business_field: str
     birth_date: date
     photo_url: Optional[str] = None
+    telegram: Optional[str] = None
 
     @field_validator("first_name", "last_name", "business_name", "business_field")
     @classmethod
@@ -76,6 +97,11 @@ class ProfileUpdate(BaseModel):
         if not v:
             raise ValueError("Поле обязательно для заполнения")
         return v
+
+    @field_validator("telegram")
+    @classmethod
+    def _clean_telegram(cls, v: Optional[str]) -> Optional[str]:
+        return _normalize_telegram(v)
 
 
 # --- Резиденты (похожие по уровню, для мобильного экрана) ---
@@ -87,6 +113,7 @@ class ResidentOut(BaseModel):
     business_field: str = ""
     photo_url: Optional[str] = None
     business_level: int = 0
+    telegram: str = ""
 
 
 # --- Квиз ---

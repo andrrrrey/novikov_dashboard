@@ -30,6 +30,7 @@ class UserProfile(SQLModel, table=True):
     business_field: str = ""      # сфера / специализация
     birth_date: Optional[date] = None
     photo_url: Optional[str] = None
+    telegram: str = ""            # телеграм-ник (без @) для связи между резидентами
     completed: bool = Field(default=False)   # анкета пройдена
 
 

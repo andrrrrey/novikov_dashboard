@@ -306,6 +306,7 @@ def _profile_out(profile: Optional[UserProfile]) -> ProfileOut:
         first_name=profile.first_name, last_name=profile.last_name,
         business_name=profile.business_name, business_field=profile.business_field,
         birth_date=profile.birth_date, photo_url=profile.photo_url,
+        telegram=profile.telegram or "",
     )
 
 
@@ -337,6 +338,7 @@ def save_profile(
     profile.business_field = payload.business_field
     profile.birth_date = payload.birth_date
     profile.photo_url = payload.photo_url or None
+    profile.telegram = payload.telegram or ""
     profile.completed = True
     session.add(profile)
     session.commit()
@@ -357,14 +359,16 @@ async def upload_my_photo(
 def list_residents(
     q: str = "",
     field: str = "",
+    scope: str = "near",   # "near" — ±1 уровень (по умолч.), "all" — все резиденты
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
     if user.email == DEMO_EMAIL:
-        return demo_residents(q, field)
+        return demo_residents(q, field, scope)
 
     exp_map = exp_assignments(session)
     my_level = business_level(session, user, exp_map)
+    all_scope = (scope or "near").strip().lower() == "all"
 
     q_norm = (q or "").strip().lower()
     field_norm = (field or "").strip().lower()
@@ -378,7 +382,7 @@ def list_residents(
         if profile is None or not profile.completed:
             continue
         level = business_level(session, u, exp_map)
-        if abs(level - my_level) > 1:   # «примерно такой же уровень» = ±1
+        if not all_scope and abs(level - my_level) > 1:   # «примерно такой же уровень» = ±1
             continue
         name = f"{profile.first_name} {profile.last_name}".strip().lower()
         if q_norm and q_norm not in name \
@@ -391,8 +395,13 @@ def list_residents(
             id=u.id, first_name=profile.first_name, last_name=profile.last_name,
             business_name=profile.business_name, business_field=profile.business_field,
             photo_url=profile.photo_url, business_level=level,
+            telegram=profile.telegram or "",
         ))
-    out.sort(key=lambda r: (r.last_name, r.first_name))
+    # «Все» — по уровню (сильные сверху), затем по имени; «рядом» — по имени.
+    if all_scope:
+        out.sort(key=lambda r: (-r.business_level, r.last_name, r.first_name))
+    else:
+        out.sort(key=lambda r: (r.last_name, r.first_name))
     return out
 
 
@@ -417,6 +426,7 @@ def _user_out(
         business_field=p.business_field if p else "",
         birth_date=p.birth_date if p else None,
         photo_url=p.photo_url if p else None,
+        telegram=(p.telegram or "") if p else "",
     )
 
 
@@ -476,7 +486,7 @@ def update_user(
 
     # Правка анкеты админом: меняем только явно переданные поля.
     profile_fields = ("first_name", "last_name", "business_name",
-                      "business_field", "birth_date", "photo_url")
+                      "business_field", "birth_date", "photo_url", "telegram")
     data = payload.model_dump(exclude_unset=True)
     if any(f in data for f in profile_fields):
         profile = session.get(UserProfile, user.id)

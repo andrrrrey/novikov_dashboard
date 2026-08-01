@@ -14,16 +14,27 @@ const ORDER = ["management", "marketing", "sales"]; // канонический 
 
 const CX = 160, RIM_RY = 16, TOP_Y = 44, BOT_Y = 392;
 
-// Песочные часы: полуширина каждой из трёх зон зависит от уровня аспекта в ней
-// по шкале 1..maxLevel (уровень 1 — узко HW_MIN, maxLevel — широко HW_MAX).
-// Полная ширина достигается только на максимуме — иначе виден пинч узкого места.
+// Форма всегда читается как песочные часы: широкие чаши (верх/низ) и узкое
+// горлышко (ключевое узкое место), даже при близких уровнях (4-5-6). Ширина
+// зоны кодирует уровень лишь слегка — в пределах «широкого» или «узкого»
+// диапазона, а сам силуэт остаётся выразительным. Числа уровней подписаны слева.
 // NECK_Y — вертикальное положение перешейка.
-const NECK_Y = 212, HW_MIN = 24, HW_MAX = 94;
-function hwForLevel(level, maxLevel) {
+const NECK_Y = 212;
+const HW_WIDE_MIN = 74, HW_WIDE_MAX = 94;   // чаши — всегда широкие
+const HW_NECK_MIN = 22, HW_NECK_MAX = 34;   // горлышко — всегда узкое
+
+function _frac(level, maxLevel) {
   const n = Math.max(1, maxLevel || 1);
   const l = Math.max(1, Math.min(n, level));
-  const frac = n > 1 ? (l - 1) / (n - 1) : 1;
-  return HW_MIN + frac * (HW_MAX - HW_MIN);
+  return n > 1 ? (l - 1) / (n - 1) : 1;
+}
+// Полуширина широкой чаши (верх/низ) для уровня аспекта.
+function wideForLevel(level, maxLevel) {
+  return HW_WIDE_MIN + _frac(level, maxLevel) * (HW_WIDE_MAX - HW_WIDE_MIN);
+}
+// Полуширина узкого горлышка (узкое место) для уровня аспекта.
+function neckForLevel(level, maxLevel) {
+  return HW_NECK_MIN + _frac(level, maxLevel) * (HW_NECK_MAX - HW_NECK_MIN);
 }
 
 const VB_TOP = 16, VB_H = 408;
@@ -80,13 +91,14 @@ export default function HourglassV2({ levels, bottleneck, balanced = false, maxL
         return { top: rest[0], neck: bottleneck.aspect, bottom: rest[1] };
       })();
 
-  // Ширина каждой зоны песочных часов — по уровню стоящего в ней аспекта (шкала 1..maxLevel).
+  // Чаши — широкие (wideForLevel), горлышко — узкое (neckForLevel): силуэт
+  // всегда выглядит как часы. При balanced рисуем цилиндр по ширине чаши.
   const geo = balanced
-    ? cylinderGeo(hwForLevel(levels[ORDER[0]], maxLevel))
+    ? cylinderGeo(wideForLevel(levels[ORDER[0]], maxLevel))
     : hourglassGeo(
-        hwForLevel(levels[placement.top], maxLevel),
-        hwForLevel(levels[placement.neck], maxLevel),
-        hwForLevel(levels[placement.bottom], maxLevel),
+        wideForLevel(levels[placement.top], maxLevel),
+        neckForLevel(levels[placement.neck], maxLevel),
+        wideForLevel(levels[placement.bottom], maxLevel),
       );
 
   const slots = geo.order.map((slot) => {
@@ -102,8 +114,8 @@ export default function HourglassV2({ levels, bottleneck, balanced = false, maxL
   });
 
   const bn = balanced ? null : ASPECTS[bottleneck.aspect];
-  const bnText = bn ? `Узкое место: ${bn.label}` : "";
-  const pillW = bnText.length * 8.6 + 30;
+  const bnText = bn ? `Ключевое узкое место: ${bn.label}` : "";
+  const pillW = bnText.length * 7.4 + 26;
 
   // Блик по внутренней левой кромке — следует за силуэтом при любых ширинах.
   const shineTop = balanced ? "" :
@@ -205,7 +217,7 @@ export default function HourglassV2({ levels, bottleneck, balanced = false, maxL
                     fill="rgba(6,11,22,0.92)" stroke={bn.base} strokeWidth="1.6" />
             </g>
             <text x={CX} y={NECK_Y + 5} textAnchor="middle" fill={bn.light}
-                  fontSize="13.5" fontWeight="700">{bnText}</text>
+                  fontSize="12" fontWeight="700">{bnText}</text>
           </>
         )}
       </svg>

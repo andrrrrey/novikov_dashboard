@@ -59,11 +59,12 @@ export const api = {
     return request("/me/upload", { method: "POST", formData: fd });
   },
 
-  // Резиденты (похожие по уровню) — поиск q, фильтр по сфере field
-  residents: ({ q = "", field = "" } = {}) => {
+  // Резиденты — поиск q, фильтр по сфере field, scope: "near" (±1 уровень) | "all"
+  residents: ({ q = "", field = "", scope = "near" } = {}) => {
     const params = new URLSearchParams();
     if (q) params.set("q", q);
     if (field) params.set("field", field);
+    if (scope && scope !== "near") params.set("scope", scope);
     const qs = params.toString();
     return request(`/me/residents${qs ? `?${qs}` : ""}`);
   },

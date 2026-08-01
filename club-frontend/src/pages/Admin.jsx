@@ -654,6 +654,7 @@ function ProfileEditor({ user, onSaved, onError }) {
     first_name: user.first_name || "", last_name: user.last_name || "",
     business_name: user.business_name || "", business_field: user.business_field || "",
     birth_date: user.birth_date || "", photo_url: user.photo_url || "",
+    telegram: user.telegram || "",
   });
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -678,6 +679,7 @@ function ProfileEditor({ user, onSaved, onError }) {
         first_name: form.first_name, last_name: form.last_name,
         business_name: form.business_name, business_field: form.business_field,
         birth_date: form.birth_date || null, photo_url: form.photo_url || null,
+        telegram: form.telegram || "",
       });
       await onSaved();
     } catch (err) { onError(err.message); } finally { setSaving(false); }
@@ -713,6 +715,9 @@ function ProfileEditor({ user, onSaved, onError }) {
         <label className="onb-field"><span className="label">Дата рождения</span>
           <input className="input" type="date" value={form.birth_date}
                  onChange={(e) => set("birth_date", e.target.value)} /></label>
+        <label className="onb-field"><span className="label">Телеграм</span>
+          <input className="input" placeholder="@username" value={form.telegram}
+                 onChange={(e) => set("telegram", e.target.value)} /></label>
       </div>
       <div className="admin-card-actions">
         <button className="btn btn-primary admin-mini" onClick={save} disabled={saving || uploading}>

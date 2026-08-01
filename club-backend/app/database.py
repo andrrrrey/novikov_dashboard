@@ -8,8 +8,41 @@ connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite")
 engine = create_engine(DATABASE_URL, echo=False, connect_args=connect_args)
 
 
+# Простые «мягкие» миграции: колонки, добавленные к уже существующим таблицам.
+# create_all не меняет существующие таблицы, поэтому недостающие колонки
+# дозаливаем вручную (idempotent — только если колонки ещё нет).
+_ADD_COLUMNS = [
+    ("userprofile", "telegram", "VARCHAR NOT NULL DEFAULT ''"),
+]
+
+
+def _existing_columns(conn, table: str) -> set[str]:
+    if DATABASE_URL.startswith("sqlite"):
+        rows = conn.exec_driver_sql(f"PRAGMA table_info({table})").fetchall()
+        return {r[1] for r in rows}
+    rows = conn.exec_driver_sql(
+        "SELECT column_name FROM information_schema.columns WHERE table_name = %s",
+        (table,),
+    ).fetchall()
+    return {r[0] for r in rows}
+
+
+def _apply_soft_migrations() -> None:
+    with engine.begin() as conn:
+        for table, column, ddl in _ADD_COLUMNS:
+            try:
+                cols = _existing_columns(conn, table)
+            except Exception:
+                continue
+            if column not in cols:
+                conn.exec_driver_sql(
+                    f"ALTER TABLE {table} ADD COLUMN {column} {ddl}"
+                )
+
+
 def init_db() -> None:
     SQLModel.metadata.create_all(engine)
+    _apply_soft_migrations()
 
 
 def get_session():
