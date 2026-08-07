@@ -6,7 +6,9 @@ import Quiz from "./pages/Quiz.jsx";
 import Onboarding from "./pages/Onboarding.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import DashboardV2 from "./pages/DashboardV2.jsx";
+import DashboardLumen from "./pages/DashboardLumen.jsx";
 import Residents from "./pages/Residents.jsx";
+import ResidentsLumen from "./pages/ResidentsLumen.jsx";
 import Admin from "./pages/Admin.jsx";
 
 export default function App() {
@@ -18,6 +20,9 @@ export default function App() {
           <Route path="/" element={<ProtectedRoute><DashboardV2 /></ProtectedRoute>} />
           <Route path="/v2" element={<ProtectedRoute><DashboardV2 /></ProtectedRoute>} />
           <Route path="/old" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          {/* Демо-редизайн (дизайн-система Lumen) — новая ссылка для показа */}
+          <Route path="/demo" element={<ProtectedRoute><DashboardLumen /></ProtectedRoute>} />
+          <Route path="/demo/residents" element={<ProtectedRoute><ResidentsLumen /></ProtectedRoute>} />
           <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
           <Route path="/residents" element={<ProtectedRoute><Residents /></ProtectedRoute>} />
           <Route path="/quiz" element={<ProtectedRoute><Quiz /></ProtectedRoute>} />
