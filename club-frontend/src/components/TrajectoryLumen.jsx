@@ -103,7 +103,7 @@ export default function TrajectoryLumen({ levels, bottleneck, balanced = false, 
 
   const bn = balanced ? null : ASPECTS[bottleneck.aspect];
   const bnText = bn ? `Узкое место: ${bn.label}` : "";
-  const pillW = bnText.length * 7.2 + 26;
+  const pillW = bnText.length * 10.5 + 34;
 
   const shineTop = balanced ? "" :
     `${CX - geo.hw(TOP_Y + 10) + 10},${TOP_Y + 10} ${CX - geo.neckHW + 3},${NECK_Y - 6}` +
@@ -205,11 +205,11 @@ export default function TrajectoryLumen({ levels, bottleneck, balanced = false, 
         {!balanced && (
           <>
             <g filter="url(#lmGlow)">
-              <rect x={CX - pillW / 2} y={NECK_Y - 16} width={pillW} height="32" rx="16"
-                    fill="rgba(6,11,7,0.94)" stroke={bn.base} strokeWidth="1.6" />
+              <rect x={CX - pillW / 2} y={NECK_Y - 24} width={pillW} height="48" rx="24"
+                    fill="rgba(6,11,7,0.95)" stroke={bn.base} strokeWidth="2" />
             </g>
-            <text x={CX} y={NECK_Y + 5} textAnchor="middle" fill={bn.light}
-                  fontSize="12" fontWeight="700"
+            <text x={CX} y={NECK_Y + 7} textAnchor="middle" fill={bn.light}
+                  fontSize="20" fontWeight="700"
                   fontFamily="'Golos Text', sans-serif">{bnText}</text>
           </>
         )}
