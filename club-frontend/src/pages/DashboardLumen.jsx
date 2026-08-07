@@ -86,11 +86,10 @@ export default function DashboardLumen() {
   return (
     <Shell logout={logout}>
       <div className="lm-stack">
-        {/* Шапка раздела: профиль + заголовок */}
+        {/* Шапка раздела: eyebrow → профиль → заголовок */}
         <div className="lm-page-head">
-          <ProfileHeader profile={profile} onPhoto={updateProfile} />
-          <div style={{ height: 6 }} />
           <span className="lm-eyebrow">Кабинет резидента</span>
+          <ProfileHeader profile={profile} onPhoto={updateProfile} />
           <h1 className="lm-h1">Состояние бизнеса</h1>
         </div>
 
