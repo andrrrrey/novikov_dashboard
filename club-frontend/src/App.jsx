@@ -8,6 +8,9 @@ import Dashboard from "./pages/Dashboard.jsx";
 import DashboardV2 from "./pages/DashboardV2.jsx";
 import DashboardLumen from "./pages/DashboardLumen.jsx";
 import DashboardPwa from "./pages/DashboardPwa.jsx";
+import LoginPwa from "./pages/LoginPwa.jsx";
+import ProfilePwa from "./pages/ProfilePwa.jsx";
+import QuizPwa from "./pages/QuizPwa.jsx";
 import Residents from "./pages/Residents.jsx";
 import ResidentsLumen from "./pages/ResidentsLumen.jsx";
 import ResidentsPwa from "./pages/ResidentsPwa.jsx";
@@ -26,8 +29,11 @@ export default function App() {
           <Route path="/demo" element={<ProtectedRoute><DashboardLumen /></ProtectedRoute>} />
           <Route path="/demo/residents" element={<ProtectedRoute><ResidentsLumen /></ProtectedRoute>} />
           {/* PWA-демо по макету Figma — отдельная ссылка для показа */}
+          <Route path="/pwa/login" element={<LoginPwa />} />
           <Route path="/pwa" element={<ProtectedRoute><DashboardPwa /></ProtectedRoute>} />
           <Route path="/pwa/residents" element={<ProtectedRoute><ResidentsPwa /></ProtectedRoute>} />
+          <Route path="/pwa/profile" element={<ProtectedRoute><ProfilePwa /></ProtectedRoute>} />
+          <Route path="/pwa/quiz" element={<ProtectedRoute><QuizPwa /></ProtectedRoute>} />
           <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
           <Route path="/residents" element={<ProtectedRoute><Residents /></ProtectedRoute>} />
           <Route path="/quiz" element={<ProtectedRoute><Quiz /></ProtectedRoute>} />

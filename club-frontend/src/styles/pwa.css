@@ -618,6 +618,13 @@
   display: flex;
   align-items: center;
   gap: 14px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
 }
 .pwa-rescard-av {
   width: 52px;
@@ -664,6 +671,351 @@
 .pwa-tg-ic {
   display: flex;
   color: #b6b6b6;
+}
+
+/* ── Экран входа ───────────────────────────────────────────────────────── */
+.pwa-login {
+  background: #050805;
+}
+.pwa-login-aurora {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(85% 55% at 12% 40%, rgba(120, 205, 88, 0.42), rgba(60, 140, 50, 0) 55%),
+    radial-gradient(75% 48% at 88% 64%, rgba(150, 230, 120, 0.5), rgba(60, 140, 50, 0) 52%),
+    radial-gradient(120% 75% at 62% 90%, rgba(95, 185, 72, 0.42), rgba(0, 0, 0, 0) 60%),
+    linear-gradient(180deg, #070b07 0%, #0b150b 42%, #05080a 100%);
+}
+.pwa-login-inner {
+  position: relative;
+  z-index: 1;
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 20px 10px;
+}
+.pwa-logo {
+  align-self: flex-start;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  line-height: 1;
+  color: #fff;
+}
+.pwa-logo sup {
+  margin-left: 3px;
+  color: #6ddd51;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+.pwa-login-form {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+}
+.pwa-h1 {
+  margin: 0 0 10px;
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  color: #fff;
+}
+.pwa-login-sub {
+  margin: 0 0 22px;
+  font-size: 16px;
+  letter-spacing: -0.3px;
+  line-height: 1.35;
+  color: #9a9a9a;
+}
+.pwa-input {
+  margin-bottom: 12px;
+  background: rgba(28, 28, 28, 0.9);
+  border: none;
+  border-radius: 26px;
+  padding: 20px 22px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 16px;
+  letter-spacing: -0.3px;
+  outline: none;
+}
+.pwa-input::placeholder {
+  color: #8a8a8a;
+}
+.pwa-btn-white {
+  margin-top: 8px;
+  background: #fff;
+  color: #111;
+  border: none;
+  border-radius: 30px;
+  padding: 18px;
+  font-family: inherit;
+  font-size: 17px;
+  letter-spacing: -0.3px;
+  cursor: pointer;
+}
+.pwa-btn-white-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 0;
+}
+
+/* ── Экран профиля резидента ───────────────────────────────────────────── */
+.pwa-prof-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 14px;
+}
+.pwa-prof-av {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  flex: none;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 30px;
+  letter-spacing: 0.5px;
+  background: radial-gradient(120% 120% at 50% 25%, #4c7d40 0%, #2f5a28 100%);
+  box-shadow: 0 0 0 3px rgba(108, 222, 81, 0.22);
+}
+.pwa-prof-info {
+  min-width: 0;
+}
+.pwa-prof-name {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.6px;
+  color: #fff;
+}
+.pwa-prof-biz {
+  margin-top: 4px;
+  font-size: 15px;
+  letter-spacing: -0.3px;
+  color: #9a9a9a;
+}
+.pwa-prof-meta {
+  margin-top: 8px;
+  display: flex;
+  gap: 16px;
+}
+.pwa-prof-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  letter-spacing: -0.2px;
+  color: #8a8a8a;
+}
+.pwa-overall {
+  background: #1b1b1b;
+  border-radius: 30px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.pwa-overall-num {
+  font-size: 64px;
+  font-weight: 700;
+  letter-spacing: -2px;
+  line-height: 1.05;
+  color: #fff;
+}
+.pwa-overall-grid {
+  display: flex;
+  width: 100%;
+  margin-top: 10px;
+}
+.pwa-overall-cell {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+}
+.pwa-overall-cell + .pwa-overall-cell::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.pwa-overall-cell-val {
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+}
+.pwa-overall-cell-lbl {
+  font-size: 13px;
+  letter-spacing: -0.3px;
+  color: #8d8d8d;
+}
+
+/* ── Экран опросника (нижний лист) ─────────────────────────────────────── */
+.pwa-quiz-frame {
+  overflow: hidden;
+}
+.pwa-quiz-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+.pwa-quiz-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 66px;
+  z-index: 1;
+  background: #141414;
+  border-radius: 30px;
+  padding: 26px 20px 26px;
+  display: flex;
+  flex-direction: column;
+}
+.pwa-quiz-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.pwa-quiz-topic {
+  font-size: 16px;
+  letter-spacing: -0.3px;
+  color: #fff;
+}
+.pwa-quiz-step {
+  font-size: 16px;
+  color: #8a8a8a;
+}
+.pwa-quiz-progress {
+  margin-top: 12px;
+  height: 6px;
+  border-radius: 3px;
+  background: #2e2e2e;
+  overflow: hidden;
+}
+.pwa-quiz-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: #6ddd51;
+  transition: width 0.25s ease;
+}
+.pwa-quiz-q {
+  margin: 20px 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  line-height: 1.25;
+  color: #fff;
+}
+.pwa-quiz-opts {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pwa-quiz-opt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  background: #242424;
+  color: #c9c9c9;
+  border: none;
+  border-radius: 26px;
+  padding: 16px 18px;
+  font-family: inherit;
+  font-size: 16px;
+  letter-spacing: -0.3px;
+  cursor: pointer;
+}
+.pwa-quiz-opt.is-active {
+  background: #fff;
+  color: #111;
+}
+.pwa-radio {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  flex: none;
+  border: 2px solid #6a6a6a;
+  display: grid;
+  place-items: center;
+}
+.pwa-quiz-opt.is-active .pwa-radio {
+  border-color: #111;
+}
+.pwa-quiz-opt.is-active .pwa-radio::after {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #111;
+}
+.pwa-quiz-foot {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+.pwa-quiz-btn-ghost {
+  flex: 1;
+  background: #242424;
+  color: #c9c9c9;
+  border: none;
+  border-radius: 26px;
+  padding: 16px;
+  font-family: inherit;
+  font-size: 16px;
+  letter-spacing: -0.3px;
+  cursor: pointer;
+}
+.pwa-quiz-btn-next {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #fff;
+  color: #111;
+  border: none;
+  border-radius: 26px;
+  padding: 16px;
+  font-family: inherit;
+  font-size: 16px;
+  letter-spacing: -0.3px;
+  cursor: pointer;
+}
+.pwa-quiz-close {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 18px;
+  z-index: 2;
+  background: #2b2b2b;
+  color: #cfcfcf;
+  border: none;
+  border-radius: 30px;
+  padding: 10px 22px;
+  font-family: inherit;
+  font-size: 14px;
+  letter-spacing: -0.3px;
+  cursor: pointer;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -102,6 +102,26 @@ export function BackIcon({ size = 20, color = "currentColor" }) {
   );
 }
 
+// Гео-метка — город в профиле.
+export function PinIcon({ size = 16, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={color} aria-hidden="true">
+      <path d="M12 2c-3.9 0-7 3-7 6.9 0 4.7 5.5 10.5 6.4 11.4.3.3.9.3 1.2 0C13.5 19.4 19 13.6 19 8.9 19 5 15.9 2 12 2zm0 9.6a2.7 2.7 0 1 1 0-5.4 2.7 2.7 0 0 1 0 5.4z" />
+    </svg>
+  );
+}
+
+// Звено цепи — ссылка на сайт в профиле.
+export function LinkIcon({ size = 16, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color}
+         strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M9.5 13.5a3.5 3.5 0 0 0 5 0l3-3a3.54 3.54 0 0 0-5-5l-1.3 1.3" />
+      <path d="M14.5 10.5a3.5 3.5 0 0 0-5 0l-3 3a3.54 3.54 0 0 0 5 5l1.3-1.3" />
+    </svg>
+  );
+}
+
 // Бумажный самолётик — «Написать в телеграм».
 export function TelegramIcon({ size = 20, color = "currentColor" }) {
   return (
