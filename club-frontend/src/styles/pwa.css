@@ -49,6 +49,13 @@
     radial-gradient(120% 82% at 82% 6%, rgba(158, 198, 128, 0.42), rgba(120, 150, 90, 0) 42%),
     linear-gradient(180deg, #3a461f 0%, #262f16 34%, #0d1108 66%, #000 100%);
 }
+/* Фон-картинка hero по уровню пользователя (backgrounds/1..10.jpg). Inline-стиль
+   задаёт background-image, а класс — как её масштабировать/позиционировать. */
+.pwa-hero-img {
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+}
 .pwa-hero::after {
   content: "";
   position: absolute;
@@ -116,8 +123,11 @@
   font-weight: 700;
   font-size: 30px;
   letter-spacing: 0.5px;
-  background: radial-gradient(120% 120% at 50% 22%, #8ee46f 0%, #4fbb38 55%, #2f9028 100%);
-  box-shadow: 0 0 0 4px rgba(108, 222, 81, 0.18), 0 10px 34px rgba(0, 0, 0, 0.5);
+  /* По макету Figma: полупрозрачный чёрный фон (сквозь него виден hero),
+     тонкая белая рамка и внутреннее зелёное свечение (inner shadow). */
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.23);
+  box-shadow: inset 0 0 49px #6ED94E, 0 10px 34px rgba(0, 0, 0, 0.5);
 }
 .pwa-name {
   font-size: 20px;
@@ -636,7 +646,9 @@
   color: #fff;
   font-weight: 600;
   font-size: 17px;
-  background: radial-gradient(120% 120% at 50% 22%, #8ee46f 0%, #4fbb38 55%, #2f9028 100%);
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.23);
+  box-shadow: inset 0 0 29px #6ED94E;
 }
 .pwa-rescard-info {
   min-width: 0;
@@ -698,18 +710,12 @@
 }
 .pwa-logo {
   align-self: flex-start;
-  font-size: 26px;
-  font-weight: 800;
-  letter-spacing: -0.5px;
-  line-height: 1;
-  color: #fff;
+  line-height: 0;
 }
-.pwa-logo sup {
-  margin-left: 3px;
-  color: #6ddd51;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 1px;
+.pwa-logo img {
+  display: block;
+  height: 26px;
+  width: auto;
 }
 .pwa-login-form {
   margin-top: auto;
@@ -784,8 +790,9 @@
   font-weight: 700;
   font-size: 30px;
   letter-spacing: 0.5px;
-  background: radial-gradient(120% 120% at 50% 25%, #4c7d40 0%, #2f5a28 100%);
-  box-shadow: 0 0 0 3px rgba(108, 222, 81, 0.22);
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.23);
+  box-shadow: inset 0 0 54px #6ED94E;
 }
 .pwa-prof-info {
   min-width: 0;

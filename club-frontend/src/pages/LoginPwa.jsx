@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import logoUrl from "../assets/logo.svg";
 import "../styles/pwa.css";
 
 // Экран входа PWA-демо по макету Figma (слева от дашборда): логотип «Новиков
@@ -18,7 +19,7 @@ export default function LoginPwa() {
         <div className="pwa-login-aurora" aria-hidden="true" />
         <div className="pwa-login-inner">
           <div className="pwa-logo">
-            НОВИКОВ<sup>CLUB</sup>
+            <img src={logoUrl} alt="Новиков Club" />
           </div>
 
           <form className="pwa-login-form" onSubmit={submit}>

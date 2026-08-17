@@ -6,14 +6,25 @@ import {
   PlayIcon, QuestionIcon, BookIcon, BoltIcon, BulbIcon,
 } from "../components/PwaIcons.jsx";
 
+// Фоны-картинки по уровню бизнеса (1..10). Импортируются через Vite, чтобы
+// попасть в сборку и получить корректный URL под base «/club/».
+const LEVEL_BG = import.meta.glob("../assets/backgrounds/*.jpg", {
+  eager: true, query: "?url", import: "default",
+});
+function bgForLevel(level) {
+  return LEVEL_BG[`../assets/backgrounds/${level}.jpg`];
+}
+
 // PWA-дашборд по макету Figma (node 0-403). Данные статичны — демо-версия для
 // показа. Отдельная ссылка /club/pwa; логика/бэкенд не задействованы.
 export default function DashboardPwa() {
   const navigate = useNavigate();
   const { logout } = useAuth();
 
+  const level = 4; // демо: уровень бизнеса (1..10) — задаёт фон hero
+
   return (
-    <PwaShell cta="Запустить траекторию развития">
+    <PwaShell cta="Запустить траекторию развития" heroImage={bgForLevel(level)}>
       {/* Шапка: «Смотреть» · профиль · «Выйти» */}
       <header className="pwa-header">
         <div className="side left">
@@ -42,7 +53,7 @@ export default function DashboardPwa() {
           <div className="pwa-level-body">
             <div className="pwa-level-top">
               <div className="pwa-level-num">
-                <b>4</b><i>/10</i>
+                <b>{level}</b><i>/10</i>
               </div>
               <div className="pwa-level-days">
                 Вы находитесь <b>23 дня</b> на этом уровне

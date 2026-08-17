@@ -5,11 +5,17 @@ import "../styles/pwa.css";
 // Оболочка PWA-демо: мобильный фрейм по центру (макет Figma 393px), hero-фон
 // сверху, прокручиваемый контент и «плавающая» нижняя панель (CTA + таб-бар),
 // которая остаётся закреплённой при прокрутке (position: sticky).
-export default function PwaShell({ children, cta = "Запустить траекторию развития", hero = true, nav = true }) {
+export default function PwaShell({ children, cta = "Запустить траекторию развития", hero = true, heroImage = null, nav = true }) {
   return (
     <div className="pwa">
       <div className="pwa-frame">
-        {hero && <div className="pwa-hero" aria-hidden="true" />}
+        {hero && (
+          <div
+            className={`pwa-hero${heroImage ? " pwa-hero-img" : ""}`}
+            style={heroImage ? { backgroundImage: `url(${heroImage})` } : undefined}
+            aria-hidden="true"
+          />
+        )}
         <div className="pwa-content">{children}</div>
 
         {nav && (
