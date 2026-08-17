@@ -80,3 +80,33 @@ export function PeopleIcon({ size = 24, color = "currentColor" }) {
     </svg>
   );
 }
+
+// Лупа — поиск по резидентам.
+export function SearchIcon({ size = 20, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color}
+         strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="10.5" cy="10.5" r="6.5" />
+      <path d="M20 20l-4.7-4.7" />
+    </svg>
+  );
+}
+
+// Шеврон влево — «Назад».
+export function BackIcon({ size = 20, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color}
+         strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M15 5l-7 7 7 7" />
+    </svg>
+  );
+}
+
+// Бумажный самолётик — «Написать в телеграм».
+export function TelegramIcon({ size = 20, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={color} aria-hidden="true">
+      <path d="M21.9 4.4 2.9 11.6c-.9.35-.9 1.63.02 1.9l4.7 1.4 1.8 5.4c.22.66 1.05.8 1.47.25l2.35-3.02 4.6 3.38c.5.37 1.22.1 1.36-.5L23 5.4c.18-.8-.6-1.43-1.1-1zM9.5 15.1l-.28 3.3-1.1-3.4 8.3-6.3-6.92 6.4z" />
+    </svg>
+  );
+}

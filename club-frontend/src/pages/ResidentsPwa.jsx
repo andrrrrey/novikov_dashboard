@@ -1,52 +1,73 @@
-import { useAuth } from "../auth/AuthContext.jsx";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import PwaShell from "../components/PwaShell.jsx";
+import { SearchIcon, BackIcon, TelegramIcon } from "../components/PwaIcons.jsx";
 
-// Резиденты в стилистике PWA-макета (демо, статичные данные). Отдельная ссылка
-// /club/pwa/residents; та же оболочка и таб-бар, что у дашборда.
+// Экран «Резиденты» по макету Figma (справа от дашборда): назад + заголовок,
+// поиск, фильтры-чипы, карточки резидентов с кнопкой «Написать в телеграм».
+// Данные статичные — демо-версия.
+const FILTERS = ["Общий уровень", "Маркетинг", "Продажи", "Менеджмент"];
+
 const RESIDENTS = [
-  { name: "Анна Соколова", biz: "Студия дизайна «Форма»", level: 6 },
-  { name: "Дмитрий Орлов", biz: "IT-агентство «Кортекс»", level: 5 },
-  { name: "Иван", biz: "Юридическое бюро «Гарант»", level: 4 },
-  { name: "Мария Ким", biz: "Сеть кофеен «Тёплый»", level: 5 },
-  { name: "Павел Гринёв", biz: "Логистика «Путь»", level: 3 },
-  { name: "Ольга Верес", biz: "Клиника «Здравие»", level: 6 },
+  { name: "Мария Волкова", field: "Семейное право", biz: "Юридическое бюро «Гарант»", level: 4 },
+  { name: "Иван Иванов", field: "Уголовное право", biz: "Адвокатский кабинет", level: 4 },
+  { name: "Алексей Смирнов", field: "Медицинское право", biz: "Правовой центр «Статус»", level: 5 },
+  { name: "Ольга Кузнецова", field: "Корпоративное право", biz: "Юркомпания «Вектор»", level: 3 },
+  { name: "Дмитрий Орлов", field: "Налоговое право", biz: "Бюро «Аргумент»", level: 5 },
 ];
 
 function initials(name) {
-  const parts = name.trim().split(/\s+/);
-  const a = parts[0]?.[0] || "";
-  const b = parts[1]?.[0] || "";
-  return (a + b).toUpperCase() || "?";
+  const p = name.trim().split(/\s+/);
+  return ((p[0]?.[0] || "") + (p[1]?.[0] || "")).toUpperCase() || "?";
 }
 
 export default function ResidentsPwa() {
-  const { logout } = useAuth();
+  const navigate = useNavigate();
+  const [active, setActive] = useState(0);
 
   return (
-    <PwaShell cta="Запустить траекторию развития">
-      <header className="pwa-header">
-        <div className="side left" />
-        <div className="pwa-profile">
-          <div className="pwa-page-title">Резиденты</div>
-          <div className="pwa-page-sub">Клуб · рядом с вашим уровнем</div>
-        </div>
-        <div className="side right">
-          <button type="button" className="pwa-pill muted" onClick={logout}>Выйти</button>
-        </div>
-      </header>
+    <PwaShell cta={null} hero={false}>
+      <div className="pwa-subhead">
+        <button type="button" className="pwa-back" onClick={() => navigate("/pwa")}>
+          <BackIcon size={20} /> Назад
+        </button>
+        <div className="pwa-subtitle">Резиденты</div>
+      </div>
 
-      <div className="pwa-stack">
+      <div className="pwa-search">
+        <span className="pwa-search-ic"><SearchIcon size={20} /></span>
+        <input type="text" placeholder="Поиск по городу, имени или практике" />
+      </div>
+
+      <div className="pwa-filters-label">Фильтры</div>
+      <div className="pwa-chips">
+        {FILTERS.map((f, i) => (
+          <button key={f} type="button"
+                  className={`pwa-chip${i === active ? " is-active" : ""}`}
+                  onClick={() => setActive(i)}>
+            {f}
+          </button>
+        ))}
+      </div>
+
+      <div className="pwa-stack" style={{ marginTop: 16 }}>
         {RESIDENTS.map((r) => (
-          <div className="pwa-res" key={r.name}>
-            <div className="pwa-res-av">{initials(r.name)}</div>
-            <div className="pwa-res-body">
-              <div className="pwa-res-name">{r.name}</div>
-              <div className="pwa-res-biz">{r.biz}</div>
+          <div className="pwa-rescard" key={r.name}>
+            <div className="pwa-rescard-top">
+              <span className="pwa-rescard-field">{r.field}</span>
+              <span className="pwa-rescard-lvl">Уровень {r.level}</span>
             </div>
-            <div className="pwa-res-lvl">
-              <span className="dot" />
-              ур. {r.level}
+            <div className="pwa-rescard-person">
+              <div className="pwa-rescard-av">{initials(r.name)}</div>
+              <div className="pwa-rescard-info">
+                <div className="pwa-rescard-name">{r.name}</div>
+                <div className="pwa-rescard-biz">{r.biz}</div>
+              </div>
             </div>
+            <button type="button" className="pwa-tg">
+              Написать в телеграм
+              <span className="pwa-tg-ic"><TelegramIcon size={20} /></span>
+            </button>
           </div>
         ))}
       </div>
