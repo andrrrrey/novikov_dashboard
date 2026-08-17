@@ -120,7 +120,7 @@ export default function DashboardPwa() {
         </section>
 
         {/* Пройти тест заново */}
-        <button type="button" className="pwa-retake" onClick={() => navigate("/quiz")}>
+        <button type="button" className="pwa-retake" onClick={() => navigate("/pwa/quiz")}>
           Пройти тест заново
         </button>
       </div>

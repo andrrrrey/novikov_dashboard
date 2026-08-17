@@ -57,13 +57,13 @@ export default function ResidentsPwa() {
               <span className="pwa-rescard-field">{r.field}</span>
               <span className="pwa-rescard-lvl">Уровень {r.level}</span>
             </div>
-            <div className="pwa-rescard-person">
+            <button type="button" className="pwa-rescard-person" onClick={() => navigate("/pwa/profile")}>
               <div className="pwa-rescard-av">{initials(r.name)}</div>
               <div className="pwa-rescard-info">
                 <div className="pwa-rescard-name">{r.name}</div>
                 <div className="pwa-rescard-biz">{r.biz}</div>
               </div>
-            </div>
+            </button>
             <button type="button" className="pwa-tg">
               Написать в телеграм
               <span className="pwa-tg-ic"><TelegramIcon size={20} /></span>
