@@ -1,0 +1,569 @@
+/* PWA-дашборд по макету Figma (node 0-403). Всё скоупится под корневым классом
+   .pwa, чтобы не влиять на другие версии кабинета. Значения — из макета:
+   #000 фон, карточки #1b1b1b, пилюли #2b2b2b, зелёный #6ddd51, радиусы 30px,
+   шрифт Inter. Десктоп — мобильный фрейм 393px по центру. */
+
+.pwa,
+.pwa *,
+.pwa *::before,
+.pwa *::after {
+  box-sizing: border-box;
+}
+
+.pwa {
+  min-height: 100dvh;
+  background: #000;
+  display: flex;
+  justify-content: center;
+  font-family: "Inter", "Manrope", system-ui, -apple-system, sans-serif;
+  color: #fff;
+}
+
+/* Мобильный фрейм — скролл-контейнер, к которому «прилипает» нижняя панель. */
+.pwa-frame {
+  position: relative;
+  width: 100%;
+  max-width: 393px;
+  height: 100dvh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+/* Hero-фон: тёплый «травяной» градиент под шапкой, затемняется к чёрному.
+   (Точное фото из Figma недоступно из-за политики egress — воссоздано в стиле
+   макета, в духе проекта, где все ассеты — CSS/inline-SVG.) */
+.pwa-hero {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 300px;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(140% 92% at 22% 10%, rgba(198, 222, 156, 0.55), rgba(120, 150, 90, 0) 46%),
+    radial-gradient(120% 82% at 82% 6%, rgba(158, 198, 128, 0.42), rgba(120, 150, 90, 0) 42%),
+    linear-gradient(180deg, #3a461f 0%, #262f16 34%, #0d1108 66%, #000 100%);
+}
+.pwa-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.72) 78%, #000 100%);
+}
+
+.pwa-content {
+  position: relative;
+  z-index: 1;
+  flex: 1 0 auto;
+  padding: 22px 16px 32px;
+}
+
+/* ── Шапка: «Смотреть» · профиль · «Выйти» ─────────────────────────────── */
+.pwa-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+}
+.pwa-header .side {
+  flex: 1 0 0;
+  min-width: 0;
+  display: flex;
+}
+.pwa-header .side.right {
+  justify-content: flex-end;
+}
+
+.pwa-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #2b2b2b;
+  border: none;
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: -0.52px;
+  line-height: 15px;
+  padding: 8px 10px;
+  border-radius: 30px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.pwa-pill.muted {
+  color: #989898;
+}
+
+.pwa-profile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+.pwa-avatar {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 30px;
+  letter-spacing: 0.5px;
+  background: radial-gradient(120% 120% at 50% 22%, #8ee46f 0%, #4fbb38 55%, #2f9028 100%);
+  box-shadow: 0 0 0 4px rgba(108, 222, 81, 0.18), 0 10px 34px rgba(0, 0, 0, 0.5);
+}
+.pwa-name {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.4px;
+  line-height: 24px;
+  color: #fff;
+}
+.pwa-biz {
+  font-size: 13px;
+  letter-spacing: -0.52px;
+  line-height: 15px;
+  color: #fafafa;
+  opacity: 0.5;
+}
+
+/* ── Стопка карточек ───────────────────────────────────────────────────── */
+.pwa-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+/* Карточка «Уровень вашего бизнеса» */
+.pwa-level {
+  background: #1b1b1b;
+  border-radius: 30px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.pwa-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.pwa-card-title {
+  font-size: 16px;
+  letter-spacing: -0.8px;
+  line-height: 20px;
+  color: #fff;
+}
+.pwa-level-body {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.pwa-level-top {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pwa-level-num {
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+}
+.pwa-level-num b {
+  font-size: 56px;
+  font-weight: 600;
+  letter-spacing: -2.24px;
+  line-height: 52px;
+  color: #fff;
+}
+.pwa-level-num i {
+  font-style: normal;
+  font-size: 20px;
+  letter-spacing: -0.4px;
+  line-height: 24px;
+  color: #4a4a4a;
+}
+.pwa-level-days {
+  font-size: 13px;
+  letter-spacing: -0.52px;
+  line-height: 15px;
+  color: #8d8d8d;
+}
+.pwa-level-days b {
+  color: #fff;
+  font-weight: 500;
+}
+.pwa-level-prog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pwa-progress {
+  position: relative;
+  height: 32px;
+  border-radius: 26px;
+  background: #303030;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 16px;
+  overflow: hidden;
+}
+.pwa-progress-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 32px;
+  border-radius: 26px;
+  background: linear-gradient(90deg, rgba(108, 220, 81, 0.10), rgba(108, 220, 81, 0.16));
+  box-shadow: inset 0 0 28px 0 #6cdc51;
+}
+.pwa-progress-pct {
+  position: relative;
+  z-index: 1;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: -0.44px;
+  color: #f6f6f6;
+}
+.pwa-progress-cap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  font-size: 13px;
+  letter-spacing: -0.52px;
+  line-height: 15px;
+}
+.pwa-progress-cap b {
+  color: #fff;
+  font-weight: 500;
+}
+.pwa-progress-cap span {
+  color: #707070;
+}
+
+/* Метрики «Знание» / «Влияние» */
+.pwa-metrics {
+  display: flex;
+  gap: 12px;
+}
+.pwa-metric {
+  position: relative;
+  flex: 1 0 0;
+  min-width: 0;
+  height: 80px;
+  background: #1b1b1b;
+  border-radius: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px 12px;
+}
+.pwa-metric .q {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  display: flex;
+}
+.pwa-metric-ic {
+  display: flex;
+  color: #f0f0f0;
+}
+.pwa-metric-txt {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pwa-metric-val {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.4px;
+  line-height: 24px;
+  color: #fff;
+}
+.pwa-metric-lbl {
+  font-size: 13px;
+  letter-spacing: -0.52px;
+  line-height: 15px;
+  color: #707070;
+}
+
+/* Карточка-граф «Узкое место» */
+.pwa-graph {
+  position: relative;
+  height: 299px;
+  background: #1b1b1b;
+  border-radius: 30px;
+  overflow: hidden;
+}
+.pwa-graph-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.pwa-graph-lbl {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  transform: translateX(-50%);
+}
+.pwa-graph-neck {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  white-space: nowrap;
+}
+.pwa-neck-title {
+  font-size: 16px;
+  letter-spacing: -0.8px;
+  line-height: 20px;
+  color: #fff;
+}
+.pwa-graph-lvl4 {
+  position: absolute;
+  font-size: 11px;
+  letter-spacing: -0.44px;
+  line-height: 13px;
+  color: #989898;
+}
+.pwa-cat {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: #2b2b2b;
+  border-radius: 30px;
+  padding: 8px 10px;
+}
+.pwa-cat .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+.pwa-cat span {
+  font-size: 13px;
+  letter-spacing: -0.52px;
+  line-height: 15px;
+  color: #989898;
+  white-space: nowrap;
+}
+.pwa-cat-lvl {
+  margin-top: 3px;
+  font-size: 11px;
+  letter-spacing: -0.44px;
+  line-height: 13px;
+  color: #989898;
+  text-align: center;
+}
+
+/* Карточка «Рекомендация» с зелёным внутренним свечением */
+.pwa-reco {
+  position: relative;
+  border-radius: 30px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+  background: #0d140a;
+  box-shadow: inset 0 0 54px 0 rgba(108, 220, 81, 0.5);
+}
+.pwa-reco-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.pwa-reco-head span {
+  font-size: 16px;
+  letter-spacing: -0.8px;
+  line-height: 20px;
+  color: #fff;
+}
+.pwa-reco-text {
+  font-size: 13px;
+  letter-spacing: -0.52px;
+  line-height: 15px;
+  color: #a8a8a8;
+}
+
+/* «Пройти тест заново» */
+.pwa-retake {
+  width: 100%;
+  background: #1b1b1b;
+  border: none;
+  border-radius: 30px;
+  padding: 12px 24px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 16px;
+  letter-spacing: -0.8px;
+  cursor: pointer;
+}
+
+/* ── Плавающая нижняя панель: CTA + таб-бар ────────────────────────────── */
+.pwa-bottom {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  margin-top: auto;
+  padding-top: 10px;
+  backdrop-filter: blur(7.5px);
+  -webkit-backdrop-filter: blur(7.5px);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.55) 42%, rgba(0, 0, 0, 0.86) 100%);
+}
+.pwa-cta-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 0 16px;
+}
+.pwa-cta {
+  width: 100%;
+  max-width: 361px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #6ddd51;
+  color: #0c1c08;
+  border: none;
+  border-radius: 30px;
+  padding: 12px 24px;
+  font-family: inherit;
+  font-size: 16px;
+  letter-spacing: -0.8px;
+  cursor: pointer;
+  box-shadow: 0 10px 34px rgba(108, 220, 81, 0.32);
+}
+.pwa-cta:active {
+  transform: translateY(1px);
+}
+
+.pwa-tabbar {
+  display: flex;
+  justify-content: center;
+  padding: 16px 16px 6px;
+}
+.pwa-tabbar-inner {
+  display: flex;
+  background: rgba(77, 77, 77, 0.42);
+  border-radius: 250px;
+  padding: 2px;
+}
+.pwa-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 83px;
+  padding: 7px 20px;
+  border-radius: 250px;
+  text-decoration: none;
+  color: #949494;
+}
+.pwa-tab span {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: -0.1px;
+}
+.pwa-tab.is-active {
+  background: rgba(255, 255, 255, 0.24);
+  color: #fff;
+}
+
+.pwa-home-indicator {
+  width: 134px;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.5);
+  margin: 6px auto 10px;
+}
+
+/* ── Резиденты (та же PWA-стилистика) ──────────────────────────────────── */
+.pwa-page-title {
+  margin: 4px 0 4px;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.6px;
+  color: #fff;
+}
+.pwa-page-sub {
+  font-size: 13px;
+  letter-spacing: -0.4px;
+  color: #8d8d8d;
+  margin-bottom: 4px;
+}
+.pwa-res {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #1b1b1b;
+  border-radius: 30px;
+  padding: 16px 18px;
+}
+.pwa-res-av {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  flex: none;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 18px;
+  background: radial-gradient(120% 120% at 50% 25%, #6a8cc0, #3a5a90);
+}
+.pwa-res-body {
+  min-width: 0;
+  flex: 1 0 0;
+}
+.pwa-res-name {
+  font-size: 16px;
+  letter-spacing: -0.4px;
+  color: #fff;
+}
+.pwa-res-biz {
+  font-size: 13px;
+  letter-spacing: -0.4px;
+  color: #8d8d8d;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pwa-res-lvl {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #2b2b2b;
+  border-radius: 30px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: #cfcfcf;
+}
+.pwa-res-lvl .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #6ddd51;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pwa * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
