@@ -184,9 +184,11 @@ export default function DashboardV2() {
           </div>
         </div>
 
-        {/* Песочные часы узкого места: визуал из PWA, раскладка — по данным */}
+        {/* Песочные часы узкого места: визуал из PWA, форма и раскладка — по данным
+            (ширина чаш кодирует уровни, ширина горлышка — узкое место). */}
         <section className="pwa-graph">
-          <PwaGraph />
+          <PwaGraph levels={levels} placement={placement} balanced={balanced}
+                    maxLevel={exp?.max_level ?? 10} />
           <div className="pwa-graph-lbl" style={{ left: "50%", top: "24px" }}>
             <div className="pwa-cat">
               <span className="dot" style={{ background: top.color }} />
