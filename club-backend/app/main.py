@@ -36,7 +36,7 @@ from app.schemas import (
     HintUpdate, InfoTipsOut, InfoTipsUpdate, KnowledgeOut, ProfileOut, ProfileUpdate,
     ProgressConfigOut, ProgressConfigUpdate, PromoOut, PromoUpdate, QuizOption,
     QuizQuestionOut, QuizSubmit, ResidentOut, SyncOut, TokenResponse,
-    UploadOut, UserCreate, UserOut, UserUpdate,
+    UploadOut, UserCreate, UserOut, UserRegister, UserUpdate,
 )
 from app.scoring import evaluate, Aspect
 from app.security import (
@@ -117,6 +117,22 @@ def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Неверный email или пароль",
         )
+    return TokenResponse(access_token=create_access_token(user), role=user.role)
+
+
+@app.post("/auth/register", response_model=TokenResponse, status_code=201)
+def register(
+    payload: UserRegister,
+    session: Session = Depends(get_session),
+):
+    if session.exec(select(User).where(User.email == payload.email)).first():
+        raise HTTPException(status_code=409, detail="Email уже занят")
+    # Роль всегда "user" — публичная регистрация не может создать администратора.
+    user = User(email=payload.email, password_hash=hash_password(payload.password),
+                role="user")
+    session.add(user)
+    session.commit()
+    session.refresh(user)
     return TokenResponse(access_token=create_access_token(user), role=user.role)
 
 

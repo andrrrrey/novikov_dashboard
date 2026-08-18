@@ -3,21 +3,30 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.jsx";
 import AuroraCanvas from "../components/AuroraCanvas.jsx";
 
-export default function Login() {
-  const { login } = useAuth();
+export default function Register() {
+  const { register } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function submit(e) {
     e.preventDefault();
     setError("");
+    if (password.length < 6) {
+      setError("Пароль должен быть не короче 6 символов.");
+      return;
+    }
+    if (password !== confirm) {
+      setError("Пароли не совпадают.");
+      return;
+    }
     setBusy(true);
     try {
-      const role = await login(email.trim(), password);
-      navigate(role === "admin" ? "/admin" : "/", { replace: true });
+      await register(email.trim(), password);
+      navigate("/", { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -33,8 +42,8 @@ export default function Login() {
           <span className="login-dot" />
           Личный кабинет резидента
         </div>
-        <h1 className="login-title">Вход</h1>
-        <p className="login-sub">Введите данные для входа.</p>
+        <h1 className="login-title">Регистрация</h1>
+        <p className="login-sub">Создайте аккаунт, чтобы пройти тест и открыть личный кабинет.</p>
 
         <form onSubmit={submit} noValidate>
           <label className="label" htmlFor="email">Email</label>
@@ -45,21 +54,28 @@ export default function Login() {
           <div style={{ height: 16 }} />
 
           <label className="label" htmlFor="password">Пароль</label>
-          <input id="password" className="input" type="password" autoComplete="current-password"
-                 placeholder="••••••••" value={password}
+          <input id="password" className="input" type="password" autoComplete="new-password"
+                 placeholder="минимум 6 символов" value={password}
                  onChange={(e) => setPassword(e.target.value)} required />
+
+          <div style={{ height: 16 }} />
+
+          <label className="label" htmlFor="confirm">Повторите пароль</label>
+          <input id="confirm" className="input" type="password" autoComplete="new-password"
+                 placeholder="••••••••" value={confirm}
+                 onChange={(e) => setConfirm(e.target.value)} required />
 
           {error && <div className="login-error">{error}</div>}
 
           <button className="btn btn-primary" style={{ width: "100%", marginTop: 22 }}
                   disabled={busy}>
-            {busy ? "Входим…" : "Войти"}
+            {busy ? "Создаём…" : "Создать аккаунт"}
           </button>
 
           <button type="button" className="btn login-secondary"
                   style={{ width: "100%", marginTop: 12 }}
-                  onClick={() => navigate("/register")} disabled={busy}>
-            Создать аккаунт
+                  onClick={() => navigate("/login")} disabled={busy}>
+            Уже есть аккаунт? Войти
           </button>
         </form>
       </div>

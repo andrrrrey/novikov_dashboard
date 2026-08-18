@@ -30,6 +30,14 @@ export function AuthProvider({ children }) {
     return res.role;
   }
 
+  async function register(email, password) {
+    const res = await api.register(email, password);
+    setToken(res.access_token);
+    setTok(res.access_token);
+    setRole(res.role);
+    return res.role;
+  }
+
   function logout() {
     setToken(null);
     setTok(null);
@@ -37,7 +45,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ token, role, ready, isAuthed: !!token, login, logout }}>
+    <AuthContext.Provider value={{ token, role, ready, isAuthed: !!token, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );
