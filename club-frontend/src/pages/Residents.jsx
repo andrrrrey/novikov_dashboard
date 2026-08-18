@@ -1,127 +1,116 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../api/client.js";
-import { useAuth } from "../auth/AuthContext.jsx";
-import Avatar from "../components/Avatar.jsx";
-import MobileNav from "../components/MobileNav.jsx";
-import TopNav from "../components/TopNav.jsx";
-import { TelegramIcon } from "../components/DashIcons.jsx";
-import "../styles/dashboard-v2.css";
+import { initials } from "../components/Avatar.jsx";
+import PwaShell from "../components/PwaShell.jsx";
+import { SearchIcon, BackIcon, TelegramIcon } from "../components/PwaIcons.jsx";
 
-const TABS = [
-  { key: "near", label: "С ближайшим уровнем" },
+// Боевой экран «Резиденты» в дизайне PWA (макет Figma): назад + заголовок,
+// поиск, чипы-фильтры и карточки резидентов с кнопкой «Написать в телеграм».
+// Данные реальные (api.residents): чипы переключают охват near/all, поиск —
+// по имени/бизнесу/сфере на клиенте.
+const SCOPES = [
+  { key: "near", label: "Ближайший уровень" },
   { key: "all", label: "Все резиденты" },
 ];
 
 export default function Residents() {
-  const { logout } = useAuth();
-  const [tab, setTab] = useState("near");
-  const [lists, setLists] = useState({});   // кэш по scope: { near: [...], all: [...] }
+  const navigate = useNavigate();
+  const [scope, setScope] = useState("near");
+  const [lists, setLists] = useState({});   // кэш по scope
   const [error, setError] = useState("");
   const [q, setQ] = useState("");
-  const [field, setField] = useState("");
 
-  // Ленивая загрузка списка по активной вкладке (с кэшем, чтобы не дёргать API дважды).
   useEffect(() => {
-    if (lists[tab]) return;
-    api.residents({ scope: tab })
-      .then((data) => setLists((prev) => ({ ...prev, [tab]: data })))
+    if (lists[scope]) return;
+    api.residents({ scope })
+      .then((data) => setLists((prev) => ({ ...prev, [scope]: data })))
       .catch((e) => setError(e.message));
-  }, [tab]);
+  }, [scope]);
 
-  const all = lists[tab] || null;
+  const all = lists[scope] || null;
 
-  const fields = useMemo(() => {
-    const set = new Set((all || []).map((r) => r.business_field).filter(Boolean));
-    return [...set].sort((a, b) => a.localeCompare(b, "ru"));
-  }, [all]);
-
-  // Поиск и фильтр — на клиенте по загруженному списку активной вкладки.
   const shown = useMemo(() => {
     const query = q.trim().toLowerCase();
     return (all || []).filter((r) => {
+      if (!query) return true;
       const name = `${r.first_name} ${r.last_name}`.toLowerCase();
-      const matchQ = !query || name.includes(query)
+      return name.includes(query)
         || (r.business_name || "").toLowerCase().includes(query)
         || (r.business_field || "").toLowerCase().includes(query);
-      const matchField = !field || r.business_field === field;
-      return matchQ && matchField;
     });
-  }, [all, q, field]);
-
-  const subtitle = tab === "near"
-    ? "Предприниматели с близким уровнем бизнеса — знакомьтесь и обменивайтесь опытом."
-    : "Все резиденты клуба, отсортированы по уровню бизнеса — от сильных к растущим.";
+  }, [all, q]);
 
   return (
-    <div className="dash-wrap ckv2 has-mnav">
-      <header className="dash-topbar">
-        <div className="dash-brand"><span className="login-dot" /> Клуб · резиденты</div>
-        <TopNav />
-        <button className="btn dash-logout" onClick={logout}>Выйти</button>
-      </header>
+    <PwaShell cta={null} hero={false} dashHref="/" resHref="/residents">
+      <div className="pwa-subhead">
+        <button type="button" className="pwa-back" onClick={() => navigate("/")}>
+          <BackIcon size={20} /> Назад
+        </button>
+        <div className="pwa-subtitle">Резиденты</div>
+      </div>
 
-      <main className="ck-main res-main">
-        <div className="res">
-          <div className="ck-head"><h1 className="ck-title">Резиденты</h1></div>
+      <div className="pwa-search">
+        <span className="pwa-search-ic"><SearchIcon size={20} /></span>
+        <input type="text" placeholder="Поиск по имени, бизнесу или практике"
+               value={q} onChange={(e) => setQ(e.target.value)} />
+      </div>
 
-          <div className="res-tabs" role="tablist">
-            {TABS.map((t) => (
-              <button key={t.key} role="tab" aria-selected={tab === t.key}
-                      className={`res-tab${tab === t.key ? " is-active" : ""}`}
-                      onClick={() => setTab(t.key)}>
-                {t.label}
-              </button>
-            ))}
-          </div>
+      <div className="pwa-filters-label">Фильтры</div>
+      <div className="pwa-chips">
+        {SCOPES.map((s) => (
+          <button key={s.key} type="button"
+                  className={`pwa-chip${scope === s.key ? " is-active" : ""}`}
+                  onClick={() => setScope(s.key)}>
+            {s.label}
+          </button>
+        ))}
+      </div>
 
-          <p className="muted res-sub">{subtitle}</p>
+      {error && <div className="pwa-state is-error">{error}</div>}
+      {!all && !error && <div className="pwa-state">Загрузка…</div>}
+      {all && shown.length === 0 && (
+        <div className="pwa-state">Пока никого не нашлось. Попробуйте изменить запрос.</div>
+      )}
 
-          <div className="res-filters">
-            <input className="input res-search" type="search" placeholder="Поиск по имени или бизнесу…"
-                   value={q} onChange={(e) => setQ(e.target.value)} />
-            <select className="input res-field" value={field}
-                    onChange={(e) => setField(e.target.value)}>
-              <option value="">Все сферы</option>
-              {fields.map((f) => <option key={f} value={f}>{f}</option>)}
-            </select>
-          </div>
-
-          {error && <div className="panel dash-msg">{error}</div>}
-          {!all && !error && <div className="panel dash-msg muted">Загрузка…</div>}
-
-          {all && shown.length === 0 && (
-            <div className="panel dash-msg muted">Пока никого не нашлось. Попробуйте изменить запрос.</div>
-          )}
-
-          <div className="res-list">
-            {shown.map((r) => (
-              <div className="res-card" key={r.id}>
-                <Avatar photoUrl={r.photo_url} firstName={r.first_name}
-                        lastName={r.last_name} size={48} />
-                <div className="res-info">
-                  <div className="res-name">{r.first_name} {r.last_name}</div>
-                  <div className="res-biz">{r.business_name}</div>
-                  <div className="res-field muted">{r.business_field}</div>
-                  {r.telegram && (
-                    <a className="res-tg" href={`https://t.me/${r.telegram}`}
-                       target="_blank" rel="noreferrer"
-                       aria-label={`Написать ${r.first_name} в телеграм`}>
-                      <TelegramIcon size={15} />
-                      <span>Написать в телеграм</span>
-                    </a>
-                  )}
+      {all && shown.length > 0 && (
+        <div className="pwa-stack" style={{ marginTop: 16 }}>
+          {shown.map((r) => {
+            const name = `${r.first_name} ${r.last_name}`.trim() || "Резидент";
+            return (
+              <div className="pwa-rescard" key={r.id}>
+                <div className="pwa-rescard-top">
+                  <span className="pwa-rescard-field">{r.business_field}</span>
+                  <span className="pwa-rescard-lvl">Уровень {r.business_level}</span>
                 </div>
-                <div className="res-level" title="Уровень бизнеса">
-                  <span className="res-level-num">{r.business_level}</span>
-                  <span className="res-level-lbl">уровень</span>
+                <div className="pwa-rescard-person">
+                  <div className="pwa-rescard-av">
+                    {r.photo_url
+                      ? <img src={r.photo_url} alt="" />
+                      : initials(r.first_name, r.last_name)}
+                  </div>
+                  <div className="pwa-rescard-info">
+                    <div className="pwa-rescard-name">{name}</div>
+                    <div className="pwa-rescard-biz">{r.business_name}</div>
+                  </div>
                 </div>
+                {r.telegram ? (
+                  <a className="pwa-tg" href={`https://t.me/${r.telegram}`}
+                     target="_blank" rel="noreferrer">
+                    Написать в телеграм
+                    <span className="pwa-tg-ic"><TelegramIcon size={20} /></span>
+                  </a>
+                ) : (
+                  <span className="pwa-tg is-disabled">
+                    Телеграм не указан
+                    <span className="pwa-tg-ic"><TelegramIcon size={20} /></span>
+                  </span>
+                )}
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
-      </main>
-
-      <MobileNav />
-    </div>
+      )}
+    </PwaShell>
   );
 }
