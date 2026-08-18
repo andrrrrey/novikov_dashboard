@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client.js";
-import Avatar from "../components/Avatar.jsx";
+import { initials } from "../components/Avatar.jsx";
+import "../styles/pwa.css";
 
-// Анкета-онбординг при первом входе. Все поля, кроме фото, обязательны.
+// Анкета-онбординг при первом входе — в дизайне PWA (как опросник), в мобильном
+// фрейме 393px, как остальные экраны кабинета. Все поля, кроме фото, обязательны.
 export default function Onboarding() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
@@ -67,68 +69,75 @@ export default function Onboarding() {
   }
 
   return (
-    <div className="quiz-wrap">
-      <form className="panel quiz-card onb-card" onSubmit={submit}>
-        <h2 className="onb-title">Расскажите о себе</h2>
-        <p className="muted onb-sub">Пара минут — и мы настроим ваш кабинет резидента.</p>
+    <div className="pwa">
+      <div className="pwa-frame pwa-onb">
+        <div className="pwa-onb-inner">
+          <h1 className="pwa-onb-title">Расскажите о себе</h1>
+          <p className="pwa-onb-sub">Пара минут — и мы настроим ваш кабинет резидента.</p>
 
-        <div className="onb-photo">
-          <Avatar photoUrl={form.photo_url} firstName={form.first_name}
-                  lastName={form.last_name} size={72} />
-          <div className="onb-photo-actions">
-            <label className="btn admin-mini">
-              {uploading ? "Загрузка…" : form.photo_url ? "Заменить фото" : "Прикрепить фото"}
-              <input type="file" accept="image/png,image/jpeg,image/webp"
-                     hidden onChange={onPhoto} disabled={uploading} />
-            </label>
-            {form.photo_url && (
-              <button type="button" className="btn admin-mini"
-                      onClick={() => set("photo_url", "")}>Убрать</button>
-            )}
-            <span className="muted onb-photo-hint">Необязательно</span>
+          <div className="pwa-onb-photo">
+            <div className="pwa-onb-av">
+              {form.photo_url
+                ? <img src={form.photo_url} alt="" />
+                : <span>{initials(form.first_name, form.last_name)}</span>}
+            </div>
+            <div className="pwa-onb-photo-actions">
+              <label className="pwa-onb-mini">
+                {uploading ? "Загрузка…" : form.photo_url ? "Заменить фото" : "Прикрепить фото"}
+                <input type="file" accept="image/png,image/jpeg,image/webp"
+                       hidden onChange={onPhoto} disabled={uploading} />
+              </label>
+              {form.photo_url && (
+                <button type="button" className="pwa-onb-mini"
+                        onClick={() => set("photo_url", "")}>Убрать</button>
+              )}
+              <span className="pwa-onb-hint">Фото необязательно</span>
+            </div>
           </div>
+
+          <form className="pwa-onb-form" onSubmit={submit} noValidate>
+            <label className="pwa-onb-field">
+              <span className="pwa-onb-label">Фамилия *</span>
+              <input className="pwa-input" value={form.last_name}
+                     onChange={(e) => set("last_name", e.target.value)} required />
+            </label>
+            <label className="pwa-onb-field">
+              <span className="pwa-onb-label">Имя *</span>
+              <input className="pwa-input" value={form.first_name}
+                     onChange={(e) => set("first_name", e.target.value)} required />
+            </label>
+            <label className="pwa-onb-field">
+              <span className="pwa-onb-label">Название бизнеса / компании *</span>
+              <input className="pwa-input" value={form.business_name}
+                     onChange={(e) => set("business_name", e.target.value)} required />
+            </label>
+            <label className="pwa-onb-field">
+              <span className="pwa-onb-label">Сфера или специализация *</span>
+              <input className="pwa-input" placeholder="например, Юридические услуги"
+                     value={form.business_field}
+                     onChange={(e) => set("business_field", e.target.value)} required />
+            </label>
+            <label className="pwa-onb-field">
+              <span className="pwa-onb-label">Дата рождения *</span>
+              <input className="pwa-input" type="date" value={form.birth_date}
+                     onChange={(e) => set("birth_date", e.target.value)} required />
+            </label>
+            <label className="pwa-onb-field">
+              <span className="pwa-onb-label">Телеграм</span>
+              <input className="pwa-input" placeholder="@username" value={form.telegram}
+                     onChange={(e) => set("telegram", e.target.value)} />
+            </label>
+
+            {error && <div className="pwa-login-err">{error}</div>}
+
+            <button type="submit" className="pwa-btn-white pwa-onb-submit"
+                    disabled={!filled || busy || uploading}>
+              {busy ? "Сохраняем…" : "Продолжить"}
+            </button>
+          </form>
+          <div className="pwa-home-indicator" aria-hidden="true" />
         </div>
-
-        <div className="onb-grid">
-          <label className="onb-field">
-            <span className="label">Фамилия *</span>
-            <input className="input" value={form.last_name}
-                   onChange={(e) => set("last_name", e.target.value)} required />
-          </label>
-          <label className="onb-field">
-            <span className="label">Имя *</span>
-            <input className="input" value={form.first_name}
-                   onChange={(e) => set("first_name", e.target.value)} required />
-          </label>
-          <label className="onb-field onb-field-wide">
-            <span className="label">Название бизнеса / компании *</span>
-            <input className="input" value={form.business_name}
-                   onChange={(e) => set("business_name", e.target.value)} required />
-          </label>
-          <label className="onb-field onb-field-wide">
-            <span className="label">Сфера или специализация *</span>
-            <input className="input" placeholder="например, Юридические услуги"
-                   value={form.business_field}
-                   onChange={(e) => set("business_field", e.target.value)} required />
-          </label>
-          <label className="onb-field">
-            <span className="label">Дата рождения *</span>
-            <input className="input" type="date" value={form.birth_date}
-                   onChange={(e) => set("birth_date", e.target.value)} required />
-          </label>
-          <label className="onb-field">
-            <span className="label">Телеграм</span>
-            <input className="input" placeholder="@username" value={form.telegram}
-                   onChange={(e) => set("telegram", e.target.value)} />
-          </label>
-        </div>
-
-        {error && <div className="login-error">{error}</div>}
-
-        <button className="btn btn-primary onb-submit" disabled={!filled || busy || uploading}>
-          {busy ? "Сохраняем…" : "Продолжить"}
-        </button>
-      </form>
+      </div>
     </div>
   );
 }
