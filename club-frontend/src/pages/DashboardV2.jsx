@@ -117,13 +117,11 @@ export default function DashboardV2() {
   const balanced = data.balanced
     || (levels.management === levels.marketing && levels.marketing === levels.sales);
 
-  // Раскладка слотов часов: узкое место — в горлышке, два других — сверху/снизу.
-  const placement = balanced
-    ? { top: ORDER[0], neck: ORDER[1], bottom: ORDER[2] }
-    : (() => {
-        const rest = ORDER.filter((a) => a !== neckAspect);
-        return { top: rest[0], neck: neckAspect, bottom: rest[1] };
-      })();
+  // Раскладка слотов часов: узкое место — всегда в горлышке (даже при равных
+  // уровнях узкое место определяется приоритетом Продажи→Маркетинг→Менеджмент),
+  // два других направления — сверху и снизу.
+  const rest = ORDER.filter((a) => a !== neckAspect);
+  const placement = { top: rest[0], neck: neckAspect, bottom: rest[1] };
   const slot = (key) => ({ ...ASPECT[placement[key]], level: levels[placement[key]] });
   const top = slot("top"), neck = slot("neck"), bottom = slot("bottom");
 
@@ -197,7 +195,7 @@ export default function DashboardV2() {
             <div className="pwa-cat-lvl">уровень: {top.level}</div>
           </div>
           <div className="pwa-graph-neck" style={{ left: "22.4%", top: "134px" }}>
-            {!balanced && <span className="pwa-neck-title">Узкое место</span>}
+            <span className="pwa-neck-title">Узкое место</span>
             <div className="pwa-cat">
               <span className="dot" style={{ background: neck.color }} />
               <span>{neck.label}</span>

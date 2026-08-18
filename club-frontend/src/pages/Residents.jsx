@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client.js";
 import { initials } from "../components/Avatar.jsx";
+import { slugify } from "../utils/slug.js";
 import PwaShell from "../components/PwaShell.jsx";
 import { SearchIcon, BackIcon, TelegramIcon } from "../components/PwaIcons.jsx";
 
@@ -84,7 +85,7 @@ export default function Residents() {
                   <span className="pwa-rescard-lvl">Уровень {r.business_level}</span>
                 </div>
                 <button type="button" className="pwa-rescard-person"
-                        onClick={() => navigate(`/residents/${r.id}`, { state: { resident: r } })}>
+                        onClick={() => navigate(`/residents/${slugify(name)}`, { state: { resident: r } })}>
                   <div className="pwa-rescard-av">
                     {r.photo_url
                       ? <img src={r.photo_url} alt="" />

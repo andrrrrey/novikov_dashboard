@@ -1,15 +1,14 @@
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { initials } from "../components/Avatar.jsx";
 import PwaShell from "../components/PwaShell.jsx";
 import { BackIcon, TelegramIcon } from "../components/PwaIcons.jsx";
 
 // Профиль резидента в дизайне PWA (макет Figma): открывается тапом по резиденту
-// на /residents. Данные приходят через router-state из списка (отдельного
-// эндпоинта на одного резидента нет), поэтому показываем то, что есть: имя,
-// бизнес, сфера практики, общий уровень и ссылка на телеграм.
+// на /residents по адресу /residents/имя-фамилия. Данные приходят через
+// router-state из списка (отдельного эндпоинта на одного резидента нет), поэтому
+// показываем то, что есть: имя, бизнес, сфера практики, общий уровень и телеграм.
 export default function ResidentProfile() {
   const navigate = useNavigate();
-  const { id } = useParams();
   const { state } = useLocation();
   const r = state?.resident;
 
