@@ -238,12 +238,7 @@ function Frame({ children, profile, logout, onPhoto, heroLevel, cta = null, ctaH
     <PwaShell cta={cta} heroImage={bgForLevel(heroLevel)} ctaHref={ctaHref}
               dashHref="/" resHref="/residents">
       <header className="pwa-header">
-        <div className="side left">
-          <button type="button" className="pwa-pill" onClick={() => profile && setPhotoOpen(true)}>
-            Смотреть
-            <PlayIcon size={15} color="#fff" />
-          </button>
-        </div>
+        <div className="side left" />
         <div className="pwa-profile">
           <button type="button" className="pwa-avatar"
                   onClick={() => profile && setPhotoOpen(true)} aria-label="Фото профиля">
@@ -253,6 +248,10 @@ function Frame({ children, profile, logout, onPhoto, heroLevel, cta = null, ctaH
           </button>
           <div className="pwa-name">{name}</div>
           {profile?.business_name && <div className="pwa-biz">{profile.business_name}</div>}
+          <button type="button" className="pwa-watch" onClick={() => profile && setPhotoOpen(true)}>
+            Смотреть
+            <PlayIcon size={16} color="#6ddd51" />
+          </button>
         </div>
         <div className="side right">
           <button type="button" className="pwa-pill muted" onClick={logout}>Выйти</button>
