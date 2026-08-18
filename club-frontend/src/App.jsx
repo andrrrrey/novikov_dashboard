@@ -37,7 +37,7 @@ export default function App() {
           <Route path="/pwa/quiz" element={<ProtectedRoute><QuizPwa /></ProtectedRoute>} />
           <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
           <Route path="/residents" element={<ProtectedRoute><Residents /></ProtectedRoute>} />
-          <Route path="/residents/:id" element={<ProtectedRoute><ResidentProfile /></ProtectedRoute>} />
+          <Route path="/residents/:slug" element={<ProtectedRoute><ResidentProfile /></ProtectedRoute>} />
           <Route path="/quiz" element={<ProtectedRoute><Quiz /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute adminOnly><Admin /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />

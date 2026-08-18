@@ -21,6 +21,7 @@ const K = 0.46;       // мягкость S-изгиба (вертикальны
 // углам), горлышко — всегда узкое; уровень слегка сдвигает значение внутри диапазона.
 const WIDE_MIN = 158, WIDE_MAX = 250;   // полуширина чаши (верх/низ)
 const NECK_MIN = 5,  NECK_MAX = 34;     // полуширина горлышка (узкое место)
+const CYL_MIN = 66,  CYL_MAX = 92;      // полуширина «цилиндра» при равных уровнях (не на всю ширину)
 
 function frac(level, maxLevel) {
   const n = Math.max(1, maxLevel || 1);
@@ -59,8 +60,9 @@ export default function PwaGraph({ levels, placement, balanced = false, maxLevel
   let topSpread = 250, botSpread = 250, neckHW = 0;
   if (levels && placement) {
     if (balanced) {
-      // Все уровни равны → цилиндр: вертикальные параллельные линии (spread = neckHW).
-      const w = wideFor(levels[placement.top], maxLevel);
+      // Все уровни равны → узкий цилиндр (не на всю ширину): вертикальные
+      // параллельные линии, spread = neckHW, ширина умеренная (CYL_*).
+      const w = CYL_MIN + frac(levels[placement.top], maxLevel) * (CYL_MAX - CYL_MIN);
       topSpread = botSpread = neckHW = w;
     } else {
       topSpread = wideFor(levels[placement.top], maxLevel);
