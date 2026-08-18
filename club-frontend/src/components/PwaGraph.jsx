@@ -17,23 +17,18 @@ const H = 178;        // размах вверх/вниз — концы вых�
 const N = 22;         // кривых в каждой половине
 const K = 0.46;       // мягкость S-изгиба (вертикальные касательные на обоих концах)
 
-// Диапазоны полуширины (viewBox 361, CX=180). Чаши — всегда широкие (доходят к
-// углам), горлышко — всегда узкое; уровень слегка сдвигает значение внутри диапазона.
-const WIDE_MIN = 158, WIDE_MAX = 250;   // полуширина чаши (верх/низ)
-const NECK_MIN = 5,  NECK_MAX = 34;     // полуширина горлышка (узкое место)
-const CYL_MIN = 66,  CYL_MAX = 92;      // полуширина «цилиндра» при равных уровнях (не на всю ширину)
+// Полуширина зон (viewBox 361, CX=180). Ширина растёт на фиксированный шаг за
+// каждый уровень — так разница между чашами хорошо видна (где уровень выше, там
+// чаша заметно шире). Чаши всегда широкие, горлышко (узкое место) — всегда узкое.
+const WIDE_MIN = 150, WIDE_MAX = 262, WIDE_STEP = 18;  // чаша: +18 полуширины на уровень
+const NECK_MIN = 5,  NECK_MAX = 34,  NECK_STEP = 4;    // горлышко (узкое место)
+const CYL_MIN = 66,  CYL_MAX = 96,  CYL_STEP = 5;      // «цилиндр» при равных уровнях
 
-function frac(level, maxLevel) {
-  const n = Math.max(1, maxLevel || 1);
-  const l = Math.max(1, Math.min(n, level || 1));
-  return n > 1 ? (l - 1) / (n - 1) : 1;
-}
-function wideFor(level, maxLevel) {
-  return WIDE_MIN + frac(level, maxLevel) * (WIDE_MAX - WIDE_MIN);
-}
-function neckFor(level, maxLevel) {
-  return NECK_MIN + frac(level, maxLevel) * (NECK_MAX - NECK_MIN);
-}
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lvl = (level) => Math.max(1, level || 1);
+function wideFor(level) { return clamp(WIDE_MIN + (lvl(level) - 1) * WIDE_STEP, WIDE_MIN, WIDE_MAX); }
+function neckFor(level) { return clamp(NECK_MIN + (lvl(level) - 1) * NECK_STEP, NECK_MIN, NECK_MAX); }
+function cylFor(level)  { return clamp(CYL_MIN + (lvl(level) - 1) * CYL_STEP, CYL_MIN, CYL_MAX); }
 
 // Одна половина: dir = −1 вверх, +1 вниз. Линии идут от перешейка (полоса шириной
 // 2·neckHW у NECK_Y) к кромке (веер шириной 2·spread у edgeY). Кубическая ogee-кривая
@@ -55,19 +50,20 @@ function halfPaths(dir, spread, neckHW) {
   return arr;
 }
 
-export default function PwaGraph({ levels, placement, balanced = false, maxLevel = 10 }) {
+export default function PwaGraph({ levels, placement, balanced = false }) {
   // По умолчанию (демо /pwa без данных) — исходная симметричная форма.
   let topSpread = 250, botSpread = 250, neckHW = 0;
   if (levels && placement) {
     if (balanced) {
       // Все уровни равны → узкий цилиндр (не на всю ширину): вертикальные
       // параллельные линии, spread = neckHW, ширина умеренная (CYL_*).
-      const w = CYL_MIN + frac(levels[placement.top], maxLevel) * (CYL_MAX - CYL_MIN);
+      const w = cylFor(levels[placement.top]);
       topSpread = botSpread = neckHW = w;
     } else {
-      topSpread = wideFor(levels[placement.top], maxLevel);
-      botSpread = wideFor(levels[placement.bottom], maxLevel);
-      neckHW = neckFor(levels[placement.neck], maxLevel);
+      // Чаши — по своим уровням (видно, где уровень выше), горлышко — узкое место.
+      topSpread = wideFor(levels[placement.top]);
+      botSpread = wideFor(levels[placement.bottom]);
+      neckHW = neckFor(levels[placement.neck]);
     }
   }
 
