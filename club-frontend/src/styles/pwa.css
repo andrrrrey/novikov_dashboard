@@ -1071,6 +1071,7 @@ a.pwa-cta {
   position: fixed;
   z-index: 60;
   transform: translateX(-50%);
+  max-width: calc(100vw - 20px);
   padding: 12px 14px;
   border-radius: 16px;
   font-size: 13px;

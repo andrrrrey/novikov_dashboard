@@ -1,38 +1,76 @@
-// «Песочные часы» узкого места из макета Figma (node 0:465): плотные пучки
-// тонких кривых выходят из перешейка в центре ВВЕРХ и ВНИЗ (концы лежат на
-// верхней и нижней кромке карточки), образуя высокий вертикальный силуэт часов.
-// Белые линии плавно исчезают у верхней и нижней кромки (маска-градиент), а по
-// каждой линии от кромки к центру «текут» белые точки. Значения статичны (демо).
+// «Песочные часы» узкого места в стиле макета Figma (node 0:465): плотные пучки
+// тонких кривых выходят из перешейка ВВЕРХ и ВНИЗ (концы — на кромках карточки),
+// образуя вертикальный силуэт часов. Белые линии затухают у кромок (маска), а по
+// каждой линии от кромки к центру «текут» точки.
+//
+// Форма — по логике старого дашборда (HourglassV2): ширина чаши кодирует уровень
+// направления, а ширина горлышка — уровень узкого места. Чем ниже уровень узкого
+// места, тем туже перешеек; чем выше уровни чаш — тем шире они расходятся. При
+// равных уровнях (balanced) рисуем «цилиндр» — вертикальные параллельные линии.
+//
+// Без пропсов (levels/placement) компонент рисует исходную симметричную форму —
+// это сохраняет демо-экран /club/pwa без изменений.
 
 const CX = 180;
-const CY = 150;
-const H = 178;      // вертикальный размах (края выходят за карточку — обрезается)
-const SPREAD = 250; // разброс концов по X вдоль кромки (шире карточки → углы)
-const N = 22;       // кривых в каждой (верхней/нижней) половине
+const NECK_Y = 150;   // вертикальное положение перешейка (совпадает с подписью «Узкое место»)
+const H = 178;        // размах вверх/вниз — концы выходят за карточку и обрезаются
+const N = 22;         // кривых в каждой половине
+const K = 0.46;       // мягкость S-изгиба (вертикальные касательные на обоих концах)
 
-const K = 0.46;    // «мягкость» изгиба (вертикальные касательные на обоих концах)
+// Диапазоны полуширины (viewBox 361, CX=180). Чаши — всегда широкие (доходят к
+// углам), горлышко — всегда узкое; уровень слегка сдвигает значение внутри диапазона.
+const WIDE_MIN = 158, WIDE_MAX = 250;   // полуширина чаши (верх/низ)
+const NECK_MIN = 5,  NECK_MAX = 34;     // полуширина горлышка (узкое место)
 
-// Одна половина: dir = −1 вверх, +1 вниз. Все концы — на горизонтальной кромке
-// y = CY + dir*H. Кубическая кривая (ogee): вертикальная касательная и в перешейке,
-// и у кромки — линии сходятся в тугой пинч и плавно S-образно изгибаются.
-function half(dir) {
+function frac(level, maxLevel) {
+  const n = Math.max(1, maxLevel || 1);
+  const l = Math.max(1, Math.min(n, level || 1));
+  return n > 1 ? (l - 1) / (n - 1) : 1;
+}
+function wideFor(level, maxLevel) {
+  return WIDE_MIN + frac(level, maxLevel) * (WIDE_MAX - WIDE_MIN);
+}
+function neckFor(level, maxLevel) {
+  return NECK_MIN + frac(level, maxLevel) * (NECK_MAX - NECK_MIN);
+}
+
+// Одна половина: dir = −1 вверх, +1 вниз. Линии идут от перешейка (полоса шириной
+// 2·neckHW у NECK_Y) к кромке (веер шириной 2·spread у edgeY). Кубическая ogee-кривая
+// с вертикальными касательными в перешейке и у кромки — тугой пинч и плавный S-изгиб.
+function halfPaths(dir, spread, neckHW) {
   const arr = [];
-  const edgeY = CY + dir * H;
+  const edgeY = NECK_Y + dir * H;
   for (let i = 0; i < N; i++) {
     const t = i / (N - 1);
-    const ex = CX - SPREAD + 2 * SPREAD * t;
-    const c1x = CX;                 // из перешейка — строго вверх/вниз
-    const c1y = CY + dir * H * K;
-    const c2x = ex;                 // к кромке — приходит вертикально
+    const sx = CX - neckHW + 2 * neckHW * t;   // старт на полосе перешейка
+    const ex = CX - spread + 2 * spread * t;   // конец на кромке
+    const c1y = NECK_Y + dir * H * K;
     const c2y = edgeY - dir * H * K;
-    arr.push(`M${CX} ${CY} C ${c1x} ${c1y.toFixed(1)} ${ex.toFixed(1)} ${c2y.toFixed(1)} ${ex.toFixed(1)} ${edgeY.toFixed(1)}`);
+    arr.push(
+      `M${sx.toFixed(1)} ${NECK_Y} C ${sx.toFixed(1)} ${c1y.toFixed(1)} ` +
+      `${ex.toFixed(1)} ${c2y.toFixed(1)} ${ex.toFixed(1)} ${edgeY.toFixed(1)}`,
+    );
   }
   return arr;
 }
 
-const LINES = [...half(-1), ...half(1)];
+export default function PwaGraph({ levels, placement, balanced = false, maxLevel = 10 }) {
+  // По умолчанию (демо /pwa без данных) — исходная симметричная форма.
+  let topSpread = 250, botSpread = 250, neckHW = 0;
+  if (levels && placement) {
+    if (balanced) {
+      // Все уровни равны → цилиндр: вертикальные параллельные линии (spread = neckHW).
+      const w = wideFor(levels[placement.top], maxLevel);
+      topSpread = botSpread = neckHW = w;
+    } else {
+      topSpread = wideFor(levels[placement.top], maxLevel);
+      botSpread = wideFor(levels[placement.bottom], maxLevel);
+      neckHW = neckFor(levels[placement.neck], maxLevel);
+    }
+  }
 
-export default function PwaGraph() {
+  const LINES = [...halfPaths(-1, topSpread, neckHW), ...halfPaths(1, botSpread, neckHW)];
+
   return (
     <svg className="pwa-graph-svg" viewBox="0 0 361 299" preserveAspectRatio="xMidYMid slice"
          aria-hidden="true">
@@ -53,8 +91,7 @@ export default function PwaGraph() {
         <g fill="none" stroke="#ffffff" strokeWidth="0.7" strokeOpacity="0.32">
           {LINES.map((d, i) => <path key={i} d={d} />)}
         </g>
-        {/* Белые точки текут от кромки (keyPoints 1→0) к центру-перешейку.
-            Смещённый begin по каждой линии даёт эффект «бегущего» потока. */}
+        {/* Белые точки текут от кромки (keyPoints 1→0) к центру-перешейку. */}
         {LINES.map((d, i) => (
           <circle key={`dot-${i}`} r="1.5" fill="#ffffff">
             <animateMotion dur="3s" begin={`${((i % 11) * 0.27).toFixed(2)}s`}

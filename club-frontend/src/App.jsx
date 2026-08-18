@@ -12,6 +12,7 @@ import LoginPwa from "./pages/LoginPwa.jsx";
 import ProfilePwa from "./pages/ProfilePwa.jsx";
 import QuizPwa from "./pages/QuizPwa.jsx";
 import Residents from "./pages/Residents.jsx";
+import ResidentProfile from "./pages/ResidentProfile.jsx";
 import ResidentsLumen from "./pages/ResidentsLumen.jsx";
 import ResidentsPwa from "./pages/ResidentsPwa.jsx";
 import Admin from "./pages/Admin.jsx";
@@ -36,6 +37,7 @@ export default function App() {
           <Route path="/pwa/quiz" element={<ProtectedRoute><QuizPwa /></ProtectedRoute>} />
           <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
           <Route path="/residents" element={<ProtectedRoute><Residents /></ProtectedRoute>} />
+          <Route path="/residents/:id" element={<ProtectedRoute><ResidentProfile /></ProtectedRoute>} />
           <Route path="/quiz" element={<ProtectedRoute><Quiz /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute adminOnly><Admin /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
