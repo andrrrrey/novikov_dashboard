@@ -598,7 +598,9 @@ function UserRow({ user, onReload, onError, onResetPassword, onRemove }) {
   return (
     <div className="admin-user">
       <div className="admin-user-main">
-        <Avatar photoUrl={user.photo_url} firstName={user.first_name}
+        {/* В списке показываем инициалы, а не фото — чтобы не «висела»
+            картинка-заглушка демо-пользователя (само фото правится в «Профиле»). */}
+        <Avatar photoUrl={null} firstName={user.first_name}
                 lastName={user.last_name} size={44} />
         <div className="admin-user-id">
           <div className="admin-user-name">
