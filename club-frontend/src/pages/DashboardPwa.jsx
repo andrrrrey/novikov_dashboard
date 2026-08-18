@@ -25,18 +25,17 @@ export default function DashboardPwa() {
 
   return (
     <PwaShell cta="Запустить траекторию развития" heroImage={bgForLevel(level)}>
-      {/* Шапка: «Смотреть» · профиль · «Выйти» */}
+      {/* Шапка: пусто · профиль (+ «Смотреть») · «Выйти» */}
       <header className="pwa-header">
-        <div className="side left">
-          <button type="button" className="pwa-pill">
-            Смотреть
-            <PlayIcon size={15} color="#fff" />
-          </button>
-        </div>
+        <div className="side left" />
         <div className="pwa-profile">
           <div className="pwa-avatar">ИП</div>
           <div className="pwa-name">Иван</div>
           <div className="pwa-biz">Юридическое бюро “Гарант”</div>
+          <button type="button" className="pwa-watch">
+            Смотреть
+            <PlayIcon size={16} color="#6ddd51" />
+          </button>
         </div>
         <div className="side right">
           <button type="button" className="pwa-pill muted" onClick={logout}>Выйти</button>

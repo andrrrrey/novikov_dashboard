@@ -28,15 +28,15 @@ def _avatar(initials: str, color: str) -> str:
     return "data:image/svg+xml;base64," + b64encode(svg.encode("utf-8")).decode("ascii")
 
 
-DEMO_PHOTO = _avatar("ИП", "#3b9eff")
-
 DEMO_PROFILE = {
     "first_name": "Иван",
     "last_name": "Предпринимателев",
     "business_name": "Юридическое бюро «Гарант»",
     "business_field": "Юридические услуги",
     "birth_date": "1988-05-14",
-    "photo_url": DEMO_PHOTO,
+    # Без фото: показываем аватар-инициалы, как у остальных резидентов
+    # (иначе в админке у демо-пользователя одиноко «висела» картинка-заглушка).
+    "photo_url": "",
     "telegram": "ivan_garant",
 }
 

@@ -5,24 +5,33 @@ import AuroraCanvas from "../components/AuroraCanvas.jsx";
 import logoUrl from "../assets/logo.svg";
 import "../styles/pwa.css";
 
-// Боевой экран входа в дизайне PWA (макет Figma): логотип «Новиков Club»,
-// «сияющий» зелёный фон, поля Email/Пароль и белая кнопка «Войти».
-// Реальная авторизация: по роли ведём в админку или в кабинет резидента.
-export default function Login() {
-  const { login } = useAuth();
+// Экран регистрации в дизайне PWA (в пару к экрану входа): Aurora-фон, логотип,
+// поля Email/Пароль/Повтор и белая кнопка «Создать аккаунт». После успеха —
+// авто-вход и переход в кабинет (новичок без анкеты попадёт в онбординг).
+export default function Register() {
+  const { register } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function submit(e) {
     e.preventDefault();
     setError("");
+    if (password.length < 6) {
+      setError("Пароль должен быть не короче 6 символов");
+      return;
+    }
+    if (password !== confirm) {
+      setError("Пароли не совпадают");
+      return;
+    }
     setBusy(true);
     try {
-      const role = await login(email.trim(), password);
-      navigate(role === "admin" ? "/admin" : "/", { replace: true });
+      await register(email.trim(), password);
+      navigate("/", { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -40,23 +49,27 @@ export default function Login() {
           </div>
 
           <form className="pwa-login-form" onSubmit={submit} noValidate>
-            <h1 className="pwa-h1">Вход</h1>
-            <p className="pwa-login-sub">Введите данные для входа</p>
+            <h1 className="pwa-h1">Регистрация</h1>
+            <p className="pwa-login-sub">Создайте аккаунт, чтобы пройти тест<br />и открыть личный кабинет</p>
 
             <input className="pwa-input" type="email" placeholder="Email" autoComplete="username"
                    value={email} onChange={(e) => setEmail(e.target.value)} required />
-            <input className="pwa-input" type="password" placeholder="Пароль" autoComplete="current-password"
+            <input className="pwa-input" type="password" placeholder="Пароль (минимум 6 символов)"
+                   autoComplete="new-password"
                    value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <input className="pwa-input" type="password" placeholder="Повторите пароль"
+                   autoComplete="new-password"
+                   value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
 
             {error && <div className="pwa-login-err">{error}</div>}
 
             <button type="submit" className="pwa-btn-white" disabled={busy}>
-              {busy ? "Входим…" : "Войти"}
+              {busy ? "Создаём…" : "Создать аккаунт"}
             </button>
 
             <button type="button" className="pwa-btn-ghost-line"
-                    onClick={() => navigate("/register")} disabled={busy}>
-              Создать аккаунт
+                    onClick={() => navigate("/login")} disabled={busy}>
+              Уже есть аккаунт? Войти
             </button>
           </form>
           <div className="pwa-home-indicator" aria-hidden="true" />

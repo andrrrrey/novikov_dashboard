@@ -31,6 +31,30 @@ def test_wrong_password_rejected(client):
     assert r.status_code == 401
 
 
+def test_public_register_creates_user_and_logs_in(client):
+    r = client.post("/auth/register",
+                    json={"email": "newbie@club.ru", "password": "secret1"})
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert body["role"] == "user"
+    assert body["access_token"]
+    # выданным токеном можно ходить в защищённые ручки
+    assert client.get("/quiz", headers=_auth(body["access_token"])).status_code == 200
+    # и обычный вход теми же данными работает
+    assert _login(client, "newbie@club.ru", "secret1")
+
+
+def test_register_duplicate_email_rejected(client):
+    client.post("/auth/register", json={"email": "dup@club.ru", "password": "secret1"})
+    r = client.post("/auth/register", json={"email": "dup@club.ru", "password": "secret1"})
+    assert r.status_code == 409
+
+
+def test_register_short_password_rejected(client):
+    r = client.post("/auth/register", json={"email": "short@club.ru", "password": "123"})
+    assert r.status_code == 422
+
+
 def test_user_requires_auth(client):
     assert client.get("/quiz").status_code == 401
     assert client.get("/me/dashboard").status_code == 401
