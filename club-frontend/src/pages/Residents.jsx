@@ -83,7 +83,8 @@ export default function Residents() {
                   <span className="pwa-rescard-field">{r.business_field}</span>
                   <span className="pwa-rescard-lvl">Уровень {r.business_level}</span>
                 </div>
-                <div className="pwa-rescard-person">
+                <button type="button" className="pwa-rescard-person"
+                        onClick={() => navigate(`/residents/${r.id}`, { state: { resident: r } })}>
                   <div className="pwa-rescard-av">
                     {r.photo_url
                       ? <img src={r.photo_url} alt="" />
@@ -93,7 +94,7 @@ export default function Residents() {
                     <div className="pwa-rescard-name">{name}</div>
                     <div className="pwa-rescard-biz">{r.business_name}</div>
                   </div>
-                </div>
+                </button>
                 {r.telegram ? (
                   <a className="pwa-tg" href={`https://t.me/${r.telegram}`}
                      target="_blank" rel="noreferrer">

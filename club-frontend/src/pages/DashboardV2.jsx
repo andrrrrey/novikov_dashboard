@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client.js";
 import { useAuth } from "../auth/AuthContext.jsx";
@@ -270,26 +270,54 @@ function Frame({ children, profile, logout, onPhoto, heroLevel, cta = null, ctaH
 }
 
 // Кнопка «?»: по клику показывает попап с описанием показателя (текст из админки).
-// Попап позиционируется fixed по координатам кнопки, чтобы не обрезался карточкой.
+// Попап позиционируется fixed по координатам кнопки и всегда удерживается в
+// пределах экрана: по горизонтали центр зажимается к краям, по вертикали —
+// раскрывается вниз, а если не помещается, разворачивается вверх или ограничивается
+// по высоте со скроллом (важно на маленьких мобильных экранах).
+const TIP_MARGIN = 10;
 function PwaInfoTip({ text, size = 20 }) {
   const [open, setOpen] = useState(false);
-  const [coords, setCoords] = useState(null);
+  const [pos, setPos] = useState(null);
   const btnRef = useRef(null);
+  const popRef = useRef(null);
 
-  function toggle() {
-    if (open) { setOpen(false); return; }
+  useLayoutEffect(() => {
+    if (!open || !btnRef.current || !popRef.current) return;
     const r = btnRef.current.getBoundingClientRect();
-    const W = Math.min(260, window.innerWidth - 24);
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const W = Math.min(280, vw - 2 * TIP_MARGIN);
     const centerX = r.left + r.width / 2;
-    const left = Math.max(8 + W / 2, Math.min(centerX, window.innerWidth - 8 - W / 2));
-    setCoords({ top: r.bottom + 8, left, width: W });
-    setOpen(true);
-  }
+    const left = Math.max(TIP_MARGIN + W / 2, Math.min(centerX, vw - TIP_MARGIN - W / 2));
+
+    const ph = popRef.current.offsetHeight;
+    const gap = 8;
+    const belowTop = r.bottom + gap;
+    const spaceBelow = vh - TIP_MARGIN - belowTop;
+    let top, maxHeight;
+    if (ph <= spaceBelow) {
+      top = belowTop; maxHeight = spaceBelow;                 // помещается снизу
+    } else {
+      const aboveBottom = r.top - gap;                        // пробуем сверху
+      const spaceAbove = aboveBottom - TIP_MARGIN;
+      if (ph <= spaceAbove) {
+        top = aboveBottom - ph; maxHeight = spaceAbove;
+      } else if (spaceBelow >= spaceAbove) {
+        top = belowTop; maxHeight = spaceBelow;                // скролл снизу
+      } else {
+        top = TIP_MARGIN; maxHeight = spaceAbove;              // скролл сверху
+      }
+    }
+    setPos({ top, left, width: W, maxHeight });
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
     const close = () => setOpen(false);
-    const onDoc = (e) => { if (btnRef.current && !btnRef.current.contains(e.target)) setOpen(false); };
+    const onDoc = (e) => {
+      if (btnRef.current && btnRef.current.contains(e.target)) return;
+      if (popRef.current && popRef.current.contains(e.target)) return;
+      setOpen(false);
+    };
     const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
     document.addEventListener("mousedown", onDoc);
     document.addEventListener("keydown", onKey);
@@ -303,6 +331,12 @@ function PwaInfoTip({ text, size = 20 }) {
     };
   }, [open]);
 
+  function toggle() {
+    if (open) { setOpen(false); return; }
+    setPos(null);
+    setOpen(true);
+  }
+
   if (!text) return <QuestionIcon size={size} bg="#1b1b1b" />;
 
   return (
@@ -311,9 +345,13 @@ function PwaInfoTip({ text, size = 20 }) {
               aria-label="Подробнее о показателе" aria-expanded={open} onClick={toggle}>
         <QuestionIcon size={size} bg="#1b1b1b" />
       </button>
-      {open && coords && (
-        <div className="pwa-tip-pop" role="tooltip"
-             style={{ top: coords.top, left: coords.left, width: coords.width }}>
+      {open && (
+        <div ref={popRef} className="pwa-tip-pop" role="tooltip"
+             style={pos
+               ? { top: pos.top, left: pos.left, width: pos.width,
+                   maxHeight: pos.maxHeight, overflowY: "auto" }
+               : { top: -9999, left: 0, width: Math.min(280, window.innerWidth - 2 * TIP_MARGIN),
+                   visibility: "hidden" }}>
           {text}
         </div>
       )}
