@@ -1,21 +1,37 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client.js";
 import { useAuth } from "../auth/AuthContext.jsx";
-import HourglassV2 from "../components/HourglassV2.jsx";
-import Avatar from "../components/Avatar.jsx";
-import MobileNav from "../components/MobileNav.jsx";
-import TopNav from "../components/TopNav.jsx";
-import { ExpIcon, KnowledgeIcon, InfluenceIcon, BulbIcon, RocketIcon, HelpIcon, CheckIcon } from "../components/DashIcons.jsx";
-import "../components/HourglassV2.css";
-import "../styles/dashboard-v2.css";
+import { initials } from "../components/Avatar.jsx";
+import PwaShell from "../components/PwaShell.jsx";
+import PwaGraph from "../components/PwaGraph.jsx";
+import {
+  PlayIcon, QuestionIcon, BookIcon, BoltIcon, BulbIcon,
+} from "../components/PwaIcons.jsx";
 
-// Цвета показателей верхней панели (в пределах палитры темы).
-const C_EXP = "#6cde52";   // --green
-const C_KNOW = "#3b9eff";  // синий аспекта
-const C_INFL = "#e7b24c";  // --gold
+// Боевой дашборд в дизайне PWA (макет Figma node 0-403): hero-фон по уровню,
+// шапка с профилем, «Уровень вашего бизнеса», метрики «Знание/Влияние»,
+// песочные часы узкого места (визуал из PWA, данные — по текущей логике) и
+// рекомендация. Все показатели реальные (api.dashboard / api.getProfile).
 
-// Склонение слова «день»: 1 день, 2 дня, 5 дней, 0 дней, 21 день…
+// Фоны-картинки по уровню бизнеса (1..10) — как в демо /pwa.
+const LEVEL_BG = import.meta.glob("../assets/backgrounds/*.jpg", {
+  eager: true, query: "?url", import: "default",
+});
+function bgForLevel(level) {
+  const n = Math.max(1, Math.min(10, level || 1));
+  return LEVEL_BG[`../assets/backgrounds/${n}.jpg`];
+}
+
+// Порядок аспектов и цвета точек — сохраняем визуал графа из /pwa.
+const ORDER = ["management", "marketing", "sales"];
+const ASPECT = {
+  management: { label: "Менеджмент", color: "#b4f1ec" },
+  marketing:  { label: "Маркетинг",  color: "#70d8bd" },
+  sales:      { label: "Продажи",    color: "#7779ff" },
+};
+
+// Склонение слова «день»: 1 день, 2 дня, 5 дней…
 function pluralDays(n) {
   const abs = Math.abs(n) % 100;
   const d = abs % 10;
@@ -34,7 +50,6 @@ export default function DashboardV2() {
 
   useEffect(() => {
     // Гейт онбординга: обычный резидент без заполненной анкеты → на опрос.
-    // Ранее созданные пользователи (до анкеты) увидят её при следующем входе.
     api.getProfile().then((p) => {
       if (role !== "admin" && !p.completed) {
         navigate("/onboarding", { replace: true });
@@ -53,143 +68,210 @@ export default function DashboardV2() {
     }).then(setProfile);
   }
 
-  if (error) return <Shell logout={logout} profile={profile} onPhoto={updateProfile}><div className="panel dash-msg">{error}</div></Shell>;
-  if (!data) return <Shell logout={logout} profile={profile} onPhoto={updateProfile}><div className="panel dash-msg muted">Загрузка…</div></Shell>;
+  const exp = data?.experience;
+  const heroLevel = exp?.level ?? 1;
 
-  if (!data.quiz_taken) {
+  if (error) {
     return (
-      <Shell logout={logout} profile={profile} onPhoto={updateProfile}>
-        <div className="dash-empty panel">
-          <h2>Пройдите короткий тест</h2>
-          <p className="muted">3 вопроса, меньше минуты. По ответам мы определим ваше узкое место
-            и покажем персональную рекомендацию.</p>
-          <button className="btn btn-primary" onClick={() => navigate("/quiz")}>Пройти тест</button>
-        </div>
-      </Shell>
+      <Frame profile={profile} logout={logout} onPhoto={updateProfile} heroLevel={heroLevel}>
+        <div className="pwa-state is-error">{error}</div>
+      </Frame>
+    );
+  }
+  if (!data || !profile) {
+    return (
+      <Frame profile={profile} logout={logout} onPhoto={updateProfile} heroLevel={heroLevel}>
+        <div className="pwa-state">Загрузка…</div>
+      </Frame>
     );
   }
 
-  // Текущие уровни направлений (из прогресса) — согласованы с дорожкой уровней и уровнем бизнеса.
+  if (!data.quiz_taken) {
+    return (
+      <Frame profile={profile} logout={logout} onPhoto={updateProfile} heroLevel={heroLevel}>
+        <div className="pwa-state">
+          <h2>Пройдите короткий тест</h2>
+          <p>3 вопроса, меньше минуты. По ответам мы определим ваше узкое место
+            и покажем персональную рекомендацию.</p>
+          <button type="button" className="pwa-cta" style={{ marginTop: 18 }}
+                  onClick={() => navigate("/quiz")}>
+            <span>Пройти тест</span>
+            <PlayIcon size={20} color="#0c1c08" />
+          </button>
+        </div>
+      </Frame>
+    );
+  }
+
+  // Текущие уровни направлений — как на исходном дашборде V2.
   const catLevels = Object.fromEntries((data.categories || []).map((c) => [c.aspect, c.level]));
   const levels = {
     management: catLevels.management ?? data.management_level ?? 1,
     marketing: catLevels.marketing ?? data.marketing_level ?? 1,
     sales: catLevels.sales ?? data.sales_level ?? 1,
   };
-  // Узкое место для часов = направление с минимальным текущим уровнем
-  // (приоритет — узкому месту из теста, если оно среди минимумов).
+  // Узкое место = направление с минимальным уровнем (приоритет — узкому месту из теста).
   const minLevel = Math.min(levels.management, levels.marketing, levels.sales);
   const neckAspect = [data.bottleneck_aspect, "management", "marketing", "sales"]
     .find((a) => a && levels[a] === minLevel);
-  const hgBalanced =
-    levels.management === levels.marketing && levels.marketing === levels.sales;
+  const balanced = data.balanced
+    || (levels.management === levels.marketing && levels.marketing === levels.sales);
+
+  // Раскладка слотов часов: узкое место — в горлышке, два других — сверху/снизу.
+  const placement = balanced
+    ? { top: ORDER[0], neck: ORDER[1], bottom: ORDER[2] }
+    : (() => {
+        const rest = ORDER.filter((a) => a !== neckAspect);
+        return { top: rest[0], neck: neckAspect, bottom: rest[1] };
+      })();
+  const slot = (key) => ({ ...ASPECT[placement[key]], level: levels[placement[key]] });
+  const top = slot("top"), neck = slot("neck"), bottom = slot("bottom");
+
   const cleanHint = (data.hint || "").replace(/^Узкое место:[^.]*\.\s*/, "");
-  const exp = data.experience;
   const kn = data.knowledge;
   const expPct = exp && exp.total > 0 ? Math.min(100, Math.round((exp.done / exp.total) * 100)) : 0;
 
   return (
-    <Shell logout={logout} profile={profile} onPhoto={updateProfile} hideProfile>
-      <div className="ck">
-        {/* Единая плашка: профиль резидента + заголовок «Состояние бизнеса» */}
-        <div className="ck-head">
-          <ProfileHeader profile={profile} onPhoto={updateProfile} embedded />
-          <h1 className="ck-title">Состояние бизнеса</h1>
-        </div>
-
-        {/* Верхняя панель показателей — над часами */}
-        <section className="ck-stats">
-          {exp && (
-            <div className="ck-exp-hero">
-              <div className="ck-exp-top">
-                <span className="ck-exp-kicker">
-                  <ExpIcon color={C_EXP} size={15} />
-                  <span className="ck-exp-kicker-txt">Уровень вашего бизнеса</span>
-                  <InfoTip text={data.info_business} accent={C_EXP} />
-                </span>
-              </div>
-
-              {/* Где пользователь сейчас и куда движется */}
-              <LevelTrack level={exp.level ?? 0} max={exp.max_level ?? 0} />
-
-              {/* Прогресс до следующего уровня: проценты + число материалов */}
-              <div className="ck-xp-block">
-                <div className="ck-xp-head">
-                  <span className="ck-xp-cap">Прогресс до следующего уровня</span>
-                  <span className="ck-xp-pct">{expPct}%</span>
+    <Frame profile={profile} logout={logout} onPhoto={updateProfile} heroLevel={heroLevel}
+           cta={data.promo_title || "Запустить траекторию развития"} ctaHref={data.promo_link || null}>
+      <div className="pwa-stack">
+        {/* Уровень вашего бизнеса */}
+        {exp && (
+          <section className="pwa-level">
+            <div className="pwa-card-head">
+              <span className="pwa-card-title">Уровень вашего бизнеса</span>
+              <PwaInfoTip text={data.info_business} size={20} />
+            </div>
+            <div className="pwa-level-body">
+              <div className="pwa-level-top">
+                <div className="pwa-level-num">
+                  <b>{exp.level}</b><i>/{exp.max_level}</i>
                 </div>
-                <div className="ck-xp-track">
-                  <div className="ck-xp-fill" style={{ width: `${expPct}%` }} />
+                <div className="pwa-level-days">
+                  Вы находитесь <b>{exp.days_on_level} {pluralDays(exp.days_on_level)}</b> на этом уровне
                 </div>
-                <span className="ck-xp-num">
-                  <b>{exp.done} из {exp.total}</b> материалов пройдено до следующего уровня
-                </span>
               </div>
-
-              <span className="ck-exp-days">
-                Вы находитесь <b>{exp.days_on_level} {pluralDays(exp.days_on_level)}</b> на этом уровне
-              </span>
-            </div>
-          )}
-
-          <div className="ck-mini-row">
-            <div className="ck-mini" style={{ "--ic": C_KNOW }}>
-              <span className="ck-mini-ic"><KnowledgeIcon color={C_KNOW} size={20} /></span>
-              <div className="ck-mini-body">
-                <span className="ck-mini-top">
-                  <span className="ck-mini-lbl">Знания</span>
-                  <InfoTip text={data.info_knowledge} accent={C_KNOW} />
-                </span>
-                <span className="ck-mini-val" style={{ color: C_KNOW }}>{kn ? kn.done : 0}</span>
+              <div className="pwa-level-prog">
+                <div className="pwa-progress">
+                  <div className="pwa-progress-fill" style={{ width: `${expPct}%` }} />
+                  <span className="pwa-progress-pct">{expPct}%</span>
+                </div>
+                <div className="pwa-progress-cap">
+                  <b>{exp.done} из {exp.total}</b><span>материалов пройдено до следующего уровня</span>
+                </div>
               </div>
             </div>
-            <div className="ck-mini" style={{ "--ic": C_INFL }}>
-              <span className="ck-mini-ic"><InfluenceIcon color={C_INFL} size={20} /></span>
-              <div className="ck-mini-body">
-                <span className="ck-mini-top">
-                  <span className="ck-mini-lbl">Влияние</span>
-                  <InfoTip text={data.info_influence} accent={C_INFL} />
-                </span>
-                <span className="ck-mini-val" style={{ color: C_INFL }}>{data.influence ?? 0}</span>
-              </div>
-            </div>
-          </div>
-
-          <LevelUp data={data} />
-        </section>
-
-        {/* Часы: левые подписи аспектов (единственное место уровней) + узкое место */}
-        <div className="ck-viz-hg">
-          <HourglassV2
-            levels={levels}
-            bottleneck={{ aspect: neckAspect, level: minLevel }}
-            balanced={hgBalanced}
-            maxLevel={exp?.max_level ?? 10}
-          />
-        </div>
-
-        {cleanHint && (
-          <div className="ck-reco">
-            <span className="ck-reco-bulb"><BulbIcon color="var(--green)" size={22} /></span>
-            <div>
-              <div className="ck-reco-title">Рекомендация</div>
-              <div className="ck-reco-text">{cleanHint}</div>
-            </div>
-          </div>
+          </section>
         )}
 
-        <div className="ck-actions">
-          <button className="btn ck-retake" onClick={() => navigate("/quiz")}>Пройти тест заново</button>
+        {/* Знание / Влияние */}
+        <div className="pwa-metrics">
+          <div className="pwa-metric">
+            <span className="q"><PwaInfoTip text={data.info_knowledge} size={15} /></span>
+            <span className="pwa-metric-ic"><BookIcon size={24} /></span>
+            <div className="pwa-metric-txt">
+              <span className="pwa-metric-val">{kn ? kn.done : 0}</span>
+              <span className="pwa-metric-lbl">Знание</span>
+            </div>
+          </div>
+          <div className="pwa-metric">
+            <span className="q"><PwaInfoTip text={data.info_influence} size={15} /></span>
+            <span className="pwa-metric-ic"><BoltIcon size={24} /></span>
+            <div className="pwa-metric-txt">
+              <span className="pwa-metric-val">{data.influence ?? 0}</span>
+              <span className="pwa-metric-lbl">Влияние</span>
+            </div>
+          </div>
         </div>
+
+        {/* Песочные часы узкого места: визуал из PWA, раскладка — по данным */}
+        <section className="pwa-graph">
+          <PwaGraph />
+          <div className="pwa-graph-lbl" style={{ left: "50%", top: "24px" }}>
+            <div className="pwa-cat">
+              <span className="dot" style={{ background: top.color }} />
+              <span>{top.label}</span>
+            </div>
+            <div className="pwa-cat-lvl">уровень: {top.level}</div>
+          </div>
+          <div className="pwa-graph-neck" style={{ left: "22.4%", top: "134px" }}>
+            {!balanced && <span className="pwa-neck-title">Узкое место</span>}
+            <div className="pwa-cat">
+              <span className="dot" style={{ background: neck.color }} />
+              <span>{neck.label}</span>
+            </div>
+          </div>
+          <div className="pwa-graph-lvl4" style={{ left: "59.6%", top: "165px" }}>уровень: {neck.level}</div>
+          <div className="pwa-graph-lbl" style={{ left: "50%", top: "231px" }}>
+            <div className="pwa-cat">
+              <span className="dot" style={{ background: bottom.color }} />
+              <span>{bottom.label}</span>
+            </div>
+            <div className="pwa-cat-lvl">уровень: {bottom.level}</div>
+          </div>
+        </section>
+
+        {/* Рекомендация */}
+        {cleanHint && (
+          <section className="pwa-reco">
+            <div className="pwa-reco-head">
+              <BulbIcon size={20} color="#6ddd51" />
+              <span>Рекомендация</span>
+            </div>
+            <p className="pwa-reco-text">{cleanHint}</p>
+          </section>
+        )}
+
+        {/* Пройти тест заново */}
+        <button type="button" className="pwa-retake" onClick={() => navigate("/quiz")}>
+          Пройти тест заново
+        </button>
       </div>
-    </Shell>
+    </Frame>
   );
 }
 
-// Кнопка «?» рядом с показателем: по клику показывает попап с описанием.
-// Попап позиционируется fixed по координатам кнопки — чтобы не обрезался
-// родителями с overflow: hidden (например, плашкой «Уровень вашего бизнеса»).
-function InfoTip({ text, accent }) {
+// Оболочка дашборда: PwaShell + шапка (Смотреть · профиль · Выйти).
+function Frame({ children, profile, logout, onPhoto, heroLevel, cta = null, ctaHref = null }) {
+  const [photoOpen, setPhotoOpen] = useState(false);
+  const name = profile?.first_name || "Резидент";
+  return (
+    <PwaShell cta={cta} heroImage={bgForLevel(heroLevel)} ctaHref={ctaHref}
+              dashHref="/" resHref="/residents">
+      <header className="pwa-header">
+        <div className="side left">
+          <button type="button" className="pwa-pill" onClick={() => profile && setPhotoOpen(true)}>
+            Смотреть
+            <PlayIcon size={15} color="#fff" />
+          </button>
+        </div>
+        <div className="pwa-profile">
+          <button type="button" className="pwa-avatar"
+                  onClick={() => profile && setPhotoOpen(true)} aria-label="Фото профиля">
+            {profile?.photo_url
+              ? <img src={profile.photo_url} alt="" />
+              : initials(profile?.first_name, profile?.last_name)}
+          </button>
+          <div className="pwa-name">{name}</div>
+          {profile?.business_name && <div className="pwa-biz">{profile.business_name}</div>}
+        </div>
+        <div className="side right">
+          <button type="button" className="pwa-pill muted" onClick={logout}>Выйти</button>
+        </div>
+      </header>
+
+      {children}
+
+      {photoOpen && profile && onPhoto && (
+        <AvatarModal profile={profile} onPhoto={onPhoto} onClose={() => setPhotoOpen(false)} />
+      )}
+    </PwaShell>
+  );
+}
+
+// Кнопка «?»: по клику показывает попап с описанием показателя (текст из админки).
+// Попап позиционируется fixed по координатам кнопки, чтобы не обрезался карточкой.
+function PwaInfoTip({ text, size = 20 }) {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState(null);
   const btnRef = useRef(null);
@@ -221,18 +303,17 @@ function InfoTip({ text, accent }) {
     };
   }, [open]);
 
-  if (!text) return null;
+  if (!text) return <QuestionIcon size={size} bg="#1b1b1b" />;
 
   return (
     <>
-      <button ref={btnRef} type="button" className={`ck-tip${open ? " is-open" : ""}`}
+      <button ref={btnRef} type="button" className="pwa-tipbtn"
               aria-label="Подробнее о показателе" aria-expanded={open} onClick={toggle}>
-        <HelpIcon size={15} />
+        <QuestionIcon size={size} bg="#1b1b1b" />
       </button>
       {open && coords && (
-        <div className="ck-tip-pop" role="tooltip"
-             style={{ top: coords.top, left: coords.left, width: coords.width,
-                      "--tip-accent": accent || "var(--green)" }}>
+        <div className="pwa-tip-pop" role="tooltip"
+             style={{ top: coords.top, left: coords.left, width: coords.width }}>
           {text}
         </div>
       )}
@@ -240,69 +321,7 @@ function InfoTip({ text, accent }) {
   );
 }
 
-// Бейдж «Запустить траекторию развития» — яркий CTA под плашками показателей.
-// Ссылку задаёт админ; при её отсутствии бейдж некликабельный, но выглядит так же.
-function LevelUp({ data }) {
-  const title = data.promo_title || "Запустить траекторию развития";
-  const link = data.promo_link || undefined;
-  const inner = (
-    <>
-      <span className="ck-levelup-ic"><RocketIcon size={22} /></span>
-      <span className="ck-levelup-title">{title}</span>
-      <span className="ck-levelup-arrow" aria-hidden="true">→</span>
-    </>
-  );
-  if (link) {
-    return (
-      <a className="ck-levelup" href={link} target="_blank" rel="noreferrer">{inner}</a>
-    );
-  }
-  return <div className="ck-levelup is-static">{inner}</div>;
-}
-
-function Shell({ children, logout, profile, onPhoto, hideProfile = false }) {
-  return (
-    <div className="dash-wrap ckv2 has-mnav">
-      <header className="dash-topbar">
-        <div className="dash-brand"><span className="login-dot" /> Клуб · кабинет резидента</div>
-        <TopNav />
-        <button className="btn dash-logout" onClick={logout}>Выйти</button>
-      </header>
-      <main className="ck-main">
-        <div className="ck-main-inner">
-          {profile && !hideProfile && <ProfileHeader profile={profile} onPhoto={onPhoto} />}
-          {children}
-        </div>
-      </main>
-      <MobileNav />
-    </div>
-  );
-}
-
-// Шапка профиля: аватар (клик → попап фото), имя и название бизнеса.
-// embedded — профиль встроен в плашку «Состояние бизнеса» (общий фон), без своей рамки.
-function ProfileHeader({ profile, onPhoto, embedded = false }) {
-  const [open, setOpen] = useState(false);
-  const fullName = `${profile.first_name} ${profile.last_name}`.trim() || "Резидент";
-  return (
-    <div className={`ck-profile${embedded ? " is-embedded" : ""}`}>
-      <button className="ck-avatar-btn" type="button" onClick={() => setOpen(true)}
-              aria-label="Открыть фото профиля">
-        <Avatar photoUrl={profile.photo_url} firstName={profile.first_name}
-                lastName={profile.last_name} size={52} />
-      </button>
-      <div className="ck-profile-meta">
-        <div className="ck-profile-name">{fullName}</div>
-        {profile.business_name && <div className="ck-profile-biz">{profile.business_name}</div>}
-      </div>
-      {open && onPhoto && (
-        <AvatarModal profile={profile} onPhoto={onPhoto} onClose={() => setOpen(false)} />
-      )}
-    </div>
-  );
-}
-
-// Попап фото: крупное фото + загрузка с ПК / удаление.
+// Попап фото профиля: крупное фото + загрузка с ПК / удаление.
 function AvatarModal({ profile, onPhoto, onClose }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -336,72 +355,27 @@ function AvatarModal({ profile, onPhoto, onClose }) {
   }
 
   return (
-    <div className="ph-overlay" onClick={onClose}>
-      <div className="ph-modal" onClick={(e) => e.stopPropagation()}>
-        <button className="ph-close" type="button" onClick={onClose} aria-label="Закрыть">×</button>
-        <div className="ph-photo">
-          <Avatar photoUrl={profile.photo_url} firstName={profile.first_name}
-                  lastName={profile.last_name} size={200} />
+    <div className="pwa-ph-overlay" onClick={onClose}>
+      <div className="pwa-ph-modal" onClick={(e) => e.stopPropagation()}>
+        <button className="pwa-ph-close" type="button" onClick={onClose} aria-label="Закрыть">×</button>
+        <div className="pwa-ph-photo">
+          {profile.photo_url
+            ? <img src={profile.photo_url} alt="" />
+            : initials(profile.first_name, profile.last_name)}
         </div>
-        {error && <div className="login-error">{error}</div>}
-        <div className="ph-actions">
-          <label className={`btn btn-primary${busy ? " is-busy" : ""}`}>
+        {error && <div className="pwa-ph-err">{error}</div>}
+        <div className="pwa-ph-actions">
+          <label className={`pwa-ph-btn primary${busy ? " is-busy" : ""}`}>
             {busy ? "Загрузка…" : "Загрузить фото с ПК"}
             <input type="file" accept="image/png,image/jpeg,image/webp"
                    hidden onChange={upload} disabled={busy} />
           </label>
           {profile.photo_url && (
-            <button className="btn" type="button" onClick={remove} disabled={busy}>
+            <button className="pwa-ph-btn ghost" type="button" onClick={remove} disabled={busy}>
               Удалить фото
             </button>
           )}
         </div>
-      </div>
-    </div>
-  );
-}
-
-// Дорожка уровней 1..max. Уровень бизнеса = минимум направлений.
-// Явно подписываем, на каком уровне пользователь сейчас, сколько всего уровней
-// и куда он движется (стрелка от текущего уровня к следующему).
-// n < level — пройден (галочка), n === level — текущий (подсветка + «вы здесь»),
-// n > level — впереди (тускло).
-function LevelTrack({ level, max }) {
-  if (!max || max < 1) return null;
-  const nums = Array.from({ length: max }, (_, i) => i + 1);
-  const atMax = level >= max;
-  return (
-    <div className="ck-levels-block">
-      <div className="ck-levels-lead">
-        <span className="ck-levels-lead-txt">Ваш уровень</span>
-        <span className="ck-levels-lead-val">
-          <b>{level}</b><span className="ck-levels-lead-of"> из {max}</span>
-        </span>
-      </div>
-
-      <div className="ck-levels" role="list" aria-label="Уровни бизнеса">
-        {nums.map((n) => {
-          const passed = n < level;
-          const current = n === level;
-          const cls = passed ? " is-passed" : current ? " is-current" : "";
-          const title = passed ? `Уровень ${n} пройден`
-            : current ? `Уровень ${n} — ваш текущий` : `Уровень ${n}`;
-          return (
-            <Fragment key={n}>
-              <span role="listitem" className={`ck-lvl${cls}`} title={title}>
-                {passed ? <CheckIcon size={13} color="#0b160b" /> : n}
-                {current && <span className="ck-lvl-here">вы&nbsp;здесь</span>}
-              </span>
-              {current && !atMax && <span className="ck-lvl-arrow" aria-hidden="true">→</span>}
-            </Fragment>
-          );
-        })}
-      </div>
-
-      <div className="ck-levels-foot">
-        {atMax
-          ? <span>🎉 Достигнут максимальный уровень — {max} из {max}</span>
-          : <>Всего уровней — {max}. Движетесь к уровню <b>{level + 1}</b></>}
       </div>
     </div>
   );

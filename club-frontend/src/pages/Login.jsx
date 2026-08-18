@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.jsx";
+import logoUrl from "../assets/logo.svg";
+import "../styles/pwa.css";
 
+// Боевой экран входа в дизайне PWA (макет Figma): логотип «Новиков Club»,
+// «сияющий» зелёный фон, поля Email/Пароль и белая кнопка «Войти».
+// Реальная авторизация: по роли ведём в админку или в кабинет резидента.
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -25,35 +30,31 @@ export default function Login() {
   }
 
   return (
-    <div className="login-wrap">
-      <div className="login-card panel">
-        <div className="login-brand">
-          <span className="login-dot" />
-          Личный кабинет резидента
+    <div className="pwa">
+      <div className="pwa-frame pwa-login">
+        <div className="pwa-login-aurora" aria-hidden="true" />
+        <div className="pwa-login-inner">
+          <div className="pwa-logo">
+            <img src={logoUrl} alt="Новиков Club" />
+          </div>
+
+          <form className="pwa-login-form" onSubmit={submit} noValidate>
+            <h1 className="pwa-h1">Вход</h1>
+            <p className="pwa-login-sub">Введите данные которые<br />выдал администратор клуба</p>
+
+            <input className="pwa-input" type="email" placeholder="Email" autoComplete="username"
+                   value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <input className="pwa-input" type="password" placeholder="Пароль" autoComplete="current-password"
+                   value={password} onChange={(e) => setPassword(e.target.value)} required />
+
+            {error && <div className="pwa-login-err">{error}</div>}
+
+            <button type="submit" className="pwa-btn-white" disabled={busy}>
+              {busy ? "Входим…" : "Войти"}
+            </button>
+          </form>
+          <div className="pwa-home-indicator" aria-hidden="true" />
         </div>
-        <h1 className="login-title">Вход</h1>
-        <p className="login-sub">Введите данные, которые выдал администратор клуба.</p>
-
-        <form onSubmit={submit} noValidate>
-          <label className="label" htmlFor="email">Email</label>
-          <input id="email" className="input" type="email" autoComplete="username"
-                 placeholder="you@example.com" value={email}
-                 onChange={(e) => setEmail(e.target.value)} required />
-
-          <div style={{ height: 16 }} />
-
-          <label className="label" htmlFor="password">Пароль</label>
-          <input id="password" className="input" type="password" autoComplete="current-password"
-                 placeholder="••••••••" value={password}
-                 onChange={(e) => setPassword(e.target.value)} required />
-
-          {error && <div className="login-error">{error}</div>}
-
-          <button className="btn btn-primary" style={{ width: "100%", marginTop: 22 }}
-                  disabled={busy}>
-            {busy ? "Входим…" : "Войти"}
-          </button>
-        </form>
       </div>
     </div>
   );
