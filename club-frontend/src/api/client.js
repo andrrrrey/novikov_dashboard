@@ -46,6 +46,9 @@ export const api = {
   login: (email, password) =>
     request("/auth/login", { method: "POST", form: { username: email, password }, auth: false }),
 
+  register: (email, password) =>
+    request("/auth/register", { method: "POST", body: { email, password }, auth: false }),
+
   getQuiz: () => request("/quiz"),
   submitQuiz: (answers) => request("/quiz/submit", { method: "POST", body: { answers } }),
   dashboard: () => request("/me/dashboard"),

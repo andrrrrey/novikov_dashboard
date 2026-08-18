@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import Login from "./pages/Login.jsx";
+import Register from "./pages/Register.jsx";
 import Quiz from "./pages/Quiz.jsx";
 import Onboarding from "./pages/Onboarding.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
@@ -23,6 +24,7 @@ export default function App() {
       <BrowserRouter basename="/club">
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
           <Route path="/" element={<ProtectedRoute><DashboardV2 /></ProtectedRoute>} />
           <Route path="/v2" element={<ProtectedRoute><DashboardV2 /></ProtectedRoute>} />
           <Route path="/old" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
