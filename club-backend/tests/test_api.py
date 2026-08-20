@@ -168,11 +168,19 @@ def test_profile_flow_and_required_fields(client):
                    headers=_auth(token))
     assert r.status_code == 422
 
-    # корректная анкета -> completed=true, данные сохранены
+    # без фото -> 422 (фото обязательно)
     r = client.put("/me/profile",
                    json={"first_name": "Иван", "last_name": "Иванов",
                          "business_name": "ООО Ромашка", "business_field": "Услуги",
                          "birth_date": "1990-01-01"},
+                   headers=_auth(token))
+    assert r.status_code == 422
+
+    # корректная анкета (с фото) -> completed=true, данные сохранены
+    r = client.put("/me/profile",
+                   json={"first_name": "Иван", "last_name": "Иванов",
+                         "business_name": "ООО Ромашка", "business_field": "Услуги",
+                         "birth_date": "1990-01-01", "photo_url": "/uploads/ivan.jpg"},
                    headers=_auth(token))
     assert r.status_code == 200, r.text
     data = r.json()
@@ -246,7 +254,8 @@ def test_profile_telegram_roundtrip(client):
     r = client.put("/me/profile",
                    json={"first_name": "Тест", "last_name": "Телеграмов",
                          "business_name": "ООО Связь", "business_field": "Услуги",
-                         "birth_date": "1990-01-01", "telegram": "@my_handle"},
+                         "birth_date": "1990-01-01", "photo_url": "/uploads/tg.jpg",
+                         "telegram": "@my_handle"},
                    headers=_auth(token))
     assert r.status_code == 200, r.text
     assert r.json()["telegram"] == "my_handle"

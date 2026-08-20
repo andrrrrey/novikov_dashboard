@@ -323,18 +323,6 @@ function AvatarModal({ profile, onPhoto, onClose }) {
     }
   }
 
-  async function remove() {
-    setBusy(true);
-    setError("");
-    try {
-      await onPhoto({ photo_url: null });
-      onClose();
-    } catch (err) {
-      setError(err.message);
-      setBusy(false);
-    }
-  }
-
   return (
     <div className="lm-ph-overlay" onClick={onClose}>
       <div className="lm-ph-modal" onClick={(e) => e.stopPropagation()}>
@@ -350,11 +338,6 @@ function AvatarModal({ profile, onPhoto, onClose }) {
             <input type="file" accept="image/png,image/jpeg,image/webp"
                    hidden onChange={upload} disabled={busy} />
           </label>
-          {profile.photo_url && (
-            <button className="lm-btn" type="button" onClick={remove} disabled={busy}>
-              Удалить фото
-            </button>
-          )}
         </div>
       </div>
     </div>
