@@ -108,7 +108,7 @@ class ProfileUpdate(BaseModel):
     birth_date: date
     birth_time: Optional[str] = None   # необязательно
     birth_city: Optional[str] = None   # необязательно
-    photo_url: Optional[str] = None
+    photo_url: str                     # фото обязательно
     telegram: Optional[str] = None
 
     @field_validator("first_name", "last_name", "business_name", "business_field")
@@ -117,6 +117,14 @@ class ProfileUpdate(BaseModel):
         v = (v or "").strip()
         if not v:
             raise ValueError("Поле обязательно для заполнения")
+        return v
+
+    @field_validator("photo_url")
+    @classmethod
+    def _photo_required(cls, v: str) -> str:
+        v = (v or "").strip()
+        if not v:
+            raise ValueError("Добавьте фото — оно обязательно")
         return v
 
     @field_validator("telegram")

@@ -29,7 +29,8 @@ export default function Onboarding() {
   }
 
   const required = ["last_name", "first_name", "business_name", "business_field", "birth_date"];
-  const filled = required.every((k) => form[k].trim());
+  // Фото теперь обязательно — без него анкету не отправить.
+  const filled = required.every((k) => form[k].trim()) && !!form.photo_url;
 
   async function onPhoto(e) {
     const file = e.target.files?.[0];
@@ -86,15 +87,11 @@ export default function Onboarding() {
             </div>
             <div className="pwa-onb-photo-actions">
               <label className="pwa-onb-mini">
-                {uploading ? "Загрузка…" : form.photo_url ? "Заменить фото" : "Прикрепить фото"}
+                {uploading ? "Загрузка…" : form.photo_url ? "Заменить фото" : "Прикрепить фото *"}
                 <input type="file" accept="image/png,image/jpeg,image/webp"
                        hidden onChange={onPhoto} disabled={uploading} />
               </label>
-              {form.photo_url && (
-                <button type="button" className="pwa-onb-mini"
-                        onClick={() => set("photo_url", "")}>Убрать</button>
-              )}
-              <span className="pwa-onb-hint">Фото необязательно</span>
+              <span className="pwa-onb-hint">Фото обязательно</span>
             </div>
           </div>
 
