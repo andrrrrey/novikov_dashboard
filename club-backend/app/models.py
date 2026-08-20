@@ -29,6 +29,8 @@ class UserProfile(SQLModel, table=True):
     business_name: str = ""       # название бизнеса/компании
     business_field: str = ""      # сфера / специализация
     birth_date: Optional[date] = None
+    birth_time: str = ""          # время рождения "HH:MM" (если известно) — необязательно
+    birth_city: str = ""          # город рождения — необязательно
     photo_url: Optional[str] = None
     telegram: str = ""            # телеграм-ник (без @) для связи между резидентами
     completed: bool = Field(default=False)   # анкета пройдена

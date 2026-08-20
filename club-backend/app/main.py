@@ -321,7 +321,9 @@ def _profile_out(profile: Optional[UserProfile]) -> ProfileOut:
         completed=profile.completed,
         first_name=profile.first_name, last_name=profile.last_name,
         business_name=profile.business_name, business_field=profile.business_field,
-        birth_date=profile.birth_date, photo_url=profile.photo_url,
+        birth_date=profile.birth_date,
+        birth_time=profile.birth_time or "", birth_city=profile.birth_city or "",
+        photo_url=profile.photo_url,
         telegram=profile.telegram or "",
     )
 
@@ -353,6 +355,8 @@ def save_profile(
     profile.business_name = payload.business_name
     profile.business_field = payload.business_field
     profile.birth_date = payload.birth_date
+    profile.birth_time = (payload.birth_time or "").strip()
+    profile.birth_city = (payload.birth_city or "").strip()
     profile.photo_url = payload.photo_url or None
     profile.telegram = payload.telegram or ""
     profile.completed = True
@@ -441,6 +445,8 @@ def _user_out(
         business_name=p.business_name if p else "",
         business_field=p.business_field if p else "",
         birth_date=p.birth_date if p else None,
+        birth_time=(p.birth_time or "") if p else "",
+        birth_city=(p.birth_city or "") if p else "",
         photo_url=p.photo_url if p else None,
         telegram=(p.telegram or "") if p else "",
     )
@@ -502,7 +508,8 @@ def update_user(
 
     # Правка анкеты админом: меняем только явно переданные поля.
     profile_fields = ("first_name", "last_name", "business_name",
-                      "business_field", "birth_date", "photo_url", "telegram")
+                      "business_field", "birth_date", "birth_time", "birth_city",
+                      "photo_url", "telegram")
     data = payload.model_dump(exclude_unset=True)
     if any(f in data for f in profile_fields):
         profile = session.get(UserProfile, user.id)
