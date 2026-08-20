@@ -13,6 +13,8 @@ engine = create_engine(DATABASE_URL, echo=False, connect_args=connect_args)
 # дозаливаем вручную (idempotent — только если колонки ещё нет).
 _ADD_COLUMNS = [
     ("userprofile", "telegram", "VARCHAR NOT NULL DEFAULT ''"),
+    ("userprofile", "birth_time", "VARCHAR NOT NULL DEFAULT ''"),
+    ("userprofile", "birth_city", "VARCHAR NOT NULL DEFAULT ''"),
 ]
 
 

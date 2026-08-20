@@ -10,7 +10,8 @@ export default function Onboarding() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
     last_name: "", first_name: "", business_name: "",
-    business_field: "", birth_date: "", photo_url: "", telegram: "",
+    business_field: "", birth_date: "", birth_time: "", birth_city: "",
+    photo_url: "", telegram: "",
   });
   const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -58,6 +59,8 @@ export default function Onboarding() {
         business_name: form.business_name.trim(),
         business_field: form.business_field.trim(),
         birth_date: form.birth_date,
+        birth_time: form.birth_time || null,
+        birth_city: form.birth_city.trim() || null,
         photo_url: form.photo_url || null,
         telegram: form.telegram.trim() || null,
       });
@@ -121,6 +124,18 @@ export default function Onboarding() {
               <span className="pwa-onb-label">Дата рождения *</span>
               <input className="pwa-input" type="date" value={form.birth_date}
                      onChange={(e) => set("birth_date", e.target.value)} required />
+            </label>
+            <label className="pwa-onb-field">
+              <span className="pwa-onb-label">Время рождения</span>
+              <input className="pwa-input" type="time" value={form.birth_time}
+                     onChange={(e) => set("birth_time", e.target.value)} />
+              <span className="pwa-onb-hint">Если известно</span>
+            </label>
+            <label className="pwa-onb-field">
+              <span className="pwa-onb-label">Город рождения</span>
+              <input className="pwa-input" placeholder="например, Москва"
+                     value={form.birth_city}
+                     onChange={(e) => set("birth_city", e.target.value)} />
             </label>
             <label className="pwa-onb-field">
               <span className="pwa-onb-label">Телеграм</span>

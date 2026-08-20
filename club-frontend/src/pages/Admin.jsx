@@ -617,6 +617,8 @@ function UserRow({ user, onReload, onError, onResetPassword, onRemove }) {
               {user.business_name}
               {user.business_field && <span className="muted"> · {user.business_field}</span>}
               {user.birth_date && <span className="muted"> · р. {user.birth_date}</span>}
+              {user.birth_time && <span className="muted"> {user.birth_time}</span>}
+              {user.birth_city && <span className="muted"> · {user.birth_city}</span>}
             </div>
           )}
         </div>
@@ -655,7 +657,8 @@ function ProfileEditor({ user, onSaved, onError }) {
   const [form, setForm] = useState({
     first_name: user.first_name || "", last_name: user.last_name || "",
     business_name: user.business_name || "", business_field: user.business_field || "",
-    birth_date: user.birth_date || "", photo_url: user.photo_url || "",
+    birth_date: user.birth_date || "", birth_time: user.birth_time || "",
+    birth_city: user.birth_city || "", photo_url: user.photo_url || "",
     telegram: user.telegram || "",
   });
   const [uploading, setUploading] = useState(false);
@@ -680,7 +683,8 @@ function ProfileEditor({ user, onSaved, onError }) {
       await api.updateUser(user.id, {
         first_name: form.first_name, last_name: form.last_name,
         business_name: form.business_name, business_field: form.business_field,
-        birth_date: form.birth_date || null, photo_url: form.photo_url || null,
+        birth_date: form.birth_date || null, birth_time: form.birth_time || "",
+        birth_city: form.birth_city || "", photo_url: form.photo_url || null,
         telegram: form.telegram || "",
       });
       await onSaved();
@@ -717,6 +721,12 @@ function ProfileEditor({ user, onSaved, onError }) {
         <label className="onb-field"><span className="label">Дата рождения</span>
           <input className="input" type="date" value={form.birth_date}
                  onChange={(e) => set("birth_date", e.target.value)} /></label>
+        <label className="onb-field"><span className="label">Время рождения</span>
+          <input className="input" type="time" value={form.birth_time}
+                 onChange={(e) => set("birth_time", e.target.value)} /></label>
+        <label className="onb-field onb-field-wide"><span className="label">Город рождения</span>
+          <input className="input" value={form.birth_city}
+                 onChange={(e) => set("birth_city", e.target.value)} /></label>
         <label className="onb-field"><span className="label">Телеграм</span>
           <input className="input" placeholder="@username" value={form.telegram}
                  onChange={(e) => set("telegram", e.target.value)} /></label>

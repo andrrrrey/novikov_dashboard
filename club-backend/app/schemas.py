@@ -55,6 +55,8 @@ class UserUpdate(BaseModel):
     business_name: Optional[str] = None
     business_field: Optional[str] = None
     birth_date: Optional[date] = None
+    birth_time: Optional[str] = None
+    birth_city: Optional[str] = None
     photo_url: Optional[str] = None
     telegram: Optional[str] = None
 
@@ -78,6 +80,8 @@ class UserOut(BaseModel):
     business_name: str = ""
     business_field: str = ""
     birth_date: Optional[date] = None
+    birth_time: str = ""
+    birth_city: str = ""
     photo_url: Optional[str] = None
     telegram: str = ""
 
@@ -90,6 +94,8 @@ class ProfileOut(BaseModel):
     business_name: str = ""
     business_field: str = ""
     birth_date: Optional[date] = None
+    birth_time: str = ""
+    birth_city: str = ""
     photo_url: Optional[str] = None
     telegram: str = ""
 
@@ -100,6 +106,8 @@ class ProfileUpdate(BaseModel):
     business_name: str
     business_field: str
     birth_date: date
+    birth_time: Optional[str] = None   # необязательно
+    birth_city: Optional[str] = None   # необязательно
     photo_url: Optional[str] = None
     telegram: Optional[str] = None
 
