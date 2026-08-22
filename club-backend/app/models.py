@@ -33,6 +33,7 @@ class UserProfile(SQLModel, table=True):
     birth_city: str = ""          # город рождения — необязательно
     photo_url: Optional[str] = None
     photo_pos: str = "50% 50%"    # object-position фото (фокус для круглого аватара)
+    photo_zoom: float = 1.0       # масштаб кадрирования (1..3), transform: scale
     telegram: str = ""            # телеграм-ник (без @) для связи между резидентами
     completed: bool = Field(default=False)   # анкета пройдена
 

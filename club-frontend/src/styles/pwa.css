@@ -1381,6 +1381,39 @@ a.pwa-tg {
   font-size: 13px;
   text-align: center;
 }
+.pwa-ph-zoom {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.pwa-ph-zoom input[type="range"] {
+  flex: 1;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: #3a3a3a;
+  border-radius: 3px;
+  outline: none;
+}
+.pwa-ph-zoom input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #6ddd51;
+  cursor: pointer;
+  border: none;
+}
+.pwa-ph-zoom input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #6ddd51;
+  cursor: pointer;
+  border: none;
+}
 .pwa-ph-btn.ghost {
   display: inline-flex;
   align-items: center;

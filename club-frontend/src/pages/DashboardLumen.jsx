@@ -49,7 +49,8 @@ export default function DashboardLumen() {
       business_name: profile.business_name, business_field: profile.business_field,
       birth_date: profile.birth_date, birth_time: profile.birth_time || null,
       birth_city: profile.birth_city || null, photo_url: profile.photo_url || null,
-      photo_pos: profile.photo_pos || "50% 50%", telegram: profile.telegram || "",
+      photo_pos: profile.photo_pos || "50% 50%", photo_zoom: profile.photo_zoom || 1,
+      telegram: profile.telegram || "",
       ...patch,
     }).then(setProfile);
   }

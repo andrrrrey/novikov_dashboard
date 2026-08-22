@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client.js";
 import { useAuth } from "../auth/AuthContext.jsx";
-import { initials } from "../components/Avatar.jsx";
+import { initials, avatarImgStyle } from "../components/Avatar.jsx";
 import PwaShell from "../components/PwaShell.jsx";
 import PwaGraph from "../components/PwaGraph.jsx";
 import {
@@ -66,7 +66,8 @@ export default function DashboardV2() {
       business_name: profile.business_name, business_field: profile.business_field,
       birth_date: profile.birth_date, birth_time: profile.birth_time || null,
       birth_city: profile.birth_city || null, photo_url: profile.photo_url || null,
-      photo_pos: profile.photo_pos || "50% 50%", telegram: profile.telegram || "",
+      photo_pos: profile.photo_pos || "50% 50%", photo_zoom: profile.photo_zoom || 1,
+      telegram: profile.telegram || "",
       ...patch,
     }).then(setProfile);
   }
@@ -249,7 +250,7 @@ function Frame({ children, profile, logout, onPhoto, heroLevel, cta = null, ctaH
                   onClick={() => profile && setPhotoOpen(true)} aria-label="Фото профиля">
             {hasPhoto
               ? <img src={profile.photo_url} alt=""
-                     style={{ objectPosition: profile.photo_pos || "50% 50%" }} />
+                     style={avatarImgStyle(profile.photo_pos, profile.photo_zoom)} />
               : initials(profile?.first_name, profile?.last_name)}
           </button>
           <div className="pwa-name-row">
@@ -380,13 +381,15 @@ function parsePos(pos) {
   return m ? { x: +m[1], y: +m[2] } : { x: 50, y: 50 };
 }
 const clampPct = (n) => Math.max(0, Math.min(100, n));
+const clampZoom = (z) => Math.max(1, Math.min(3, Number(z) || 1));
 
-// Попап фото профиля: крупное фото, загрузка с ПК и режим «изменить положение».
+// Попап фото профиля: крупное фото, загрузка с ПК и кадрирование (зум + сдвиг).
 function AvatarModal({ profile, onPhoto, onClose }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [reposition, setReposition] = useState(false);
   const [pos, setPos] = useState(() => parsePos(profile.photo_pos));
+  const [zoom, setZoom] = useState(() => clampZoom(profile.photo_zoom));
   const drag = useRef(null);
   const hasPhoto = !!profile.photo_url;
 
@@ -398,9 +401,10 @@ function AvatarModal({ profile, onPhoto, onClose }) {
     setError("");
     try {
       const { url } = await api.uploadMyPhoto(file);
-      // Новое фото — центрируем заново.
-      await onPhoto({ photo_url: url, photo_pos: "50% 50%" });
+      // Новое фото — центрируем и сбрасываем зум.
+      await onPhoto({ photo_url: url, photo_pos: "50% 50%", photo_zoom: 1 });
       setPos({ x: 50, y: 50 });
+      setZoom(1);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -408,19 +412,20 @@ function AvatarModal({ profile, onPhoto, onClose }) {
     }
   }
 
-  // Перетаскивание: сдвиг курсора по кругу двигает фокус кадра (object-position).
+  // Перетаскивание сдвигает фокус кадра. Чем сильнее зум, тем чувствительнее.
   function onPointerDown(e) {
     if (!reposition) return;
     e.currentTarget.setPointerCapture?.(e.pointerId);
     const box = e.currentTarget.getBoundingClientRect();
-    drag.current = { px: e.clientX, py: e.clientY, size: box.width, start: pos };
+    drag.current = { px: e.clientX, py: e.clientY, size: box.width, start: pos, zoom };
   }
   function onPointerMove(e) {
     if (!drag.current) return;
     const d = drag.current;
-    const dxPct = ((e.clientX - d.px) / d.size) * 100;
-    const dyPct = ((e.clientY - d.py) / d.size) * 100;
-    // Тянем вправо → показываем левую часть → object-position уменьшается.
+    // Делим на зум: при увеличении фокус нужно двигать мельче.
+    const dxPct = ((e.clientX - d.px) / d.size) * 100 / d.zoom;
+    const dyPct = ((e.clientY - d.py) / d.size) * 100 / d.zoom;
+    // Тянем вправо → показываем левую часть → фокус уменьшается.
     setPos({ x: clampPct(d.start.x - dxPct), y: clampPct(d.start.y - dyPct) });
   }
   function onPointerUp() { drag.current = null; }
@@ -429,7 +434,10 @@ function AvatarModal({ profile, onPhoto, onClose }) {
     setBusy(true);
     setError("");
     try {
-      await onPhoto({ photo_pos: `${Math.round(pos.x)}% ${Math.round(pos.y)}%` });
+      await onPhoto({
+        photo_pos: `${Math.round(pos.x)}% ${Math.round(pos.y)}%`,
+        photo_zoom: Math.round(zoom * 100) / 100,
+      });
       setReposition(false);
     } catch (err) {
       setError(err.message);
@@ -438,7 +446,13 @@ function AvatarModal({ profile, onPhoto, onClose }) {
     }
   }
 
-  const objPos = `${pos.x}% ${pos.y}%`;
+  function cancelReposition() {
+    setPos(parsePos(profile.photo_pos));
+    setZoom(clampZoom(profile.photo_zoom));
+    setReposition(false);
+  }
+
+  const imgStyle = avatarImgStyle(`${pos.x}% ${pos.y}%`, reposition ? zoom : profile.photo_zoom);
   return (
     <div className="pwa-ph-overlay" onClick={onClose}>
       <div className="pwa-ph-modal" onClick={(e) => e.stopPropagation()}>
@@ -448,13 +462,22 @@ function AvatarModal({ profile, onPhoto, onClose }) {
              onPointerDown={onPointerDown} onPointerMove={onPointerMove}
              onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
           {hasPhoto
-            ? <img src={profile.photo_url} alt="" draggable="false"
-                   style={{ objectPosition: objPos }} />
+            ? <img src={profile.photo_url} alt="" draggable="false" style={imgStyle} />
             : initials(profile.first_name, profile.last_name)}
           {reposition && <span className="pwa-ph-grid" aria-hidden="true" />}
         </div>
 
-        {reposition && <p className="pwa-ph-tip">Перетащите фото, чтобы выбрать область</p>}
+        {reposition && (
+          <>
+            <p className="pwa-ph-tip">Перетащите фото и настройте масштаб</p>
+            <div className="pwa-ph-zoom">
+              <MoveIcon size={15} color="#8a8a8a" />
+              <input type="range" min="1" max="3" step="0.01" value={zoom}
+                     onChange={(e) => setZoom(clampZoom(e.target.value))}
+                     aria-label="Масштаб фото" />
+            </div>
+          </>
+        )}
         {error && <div className="pwa-ph-err">{error}</div>}
 
         <div className="pwa-ph-actions">
@@ -465,7 +488,7 @@ function AvatarModal({ profile, onPhoto, onClose }) {
                 {busy ? "Сохраняем…" : "Сохранить положение"}
               </button>
               <button className="pwa-ph-btn ghost" type="button" disabled={busy}
-                      onClick={() => { setPos(parsePos(profile.photo_pos)); setReposition(false); }}>
+                      onClick={cancelReposition}>
                 Отмена
               </button>
             </>

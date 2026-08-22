@@ -335,6 +335,7 @@ def _profile_out(profile: Optional[UserProfile]) -> ProfileOut:
         birth_time=profile.birth_time or "", birth_city=profile.birth_city or "",
         photo_url=profile.photo_url,
         photo_pos=profile.photo_pos or "50% 50%",
+        photo_zoom=profile.photo_zoom or 1.0,
         telegram=profile.telegram or "",
     )
 
@@ -370,6 +371,7 @@ def save_profile(
     profile.birth_city = (payload.birth_city or "").strip()
     profile.photo_url = payload.photo_url or None
     profile.photo_pos = payload.photo_pos or "50% 50%"
+    profile.photo_zoom = payload.photo_zoom or 1.0
     profile.telegram = payload.telegram or ""
     profile.completed = True
     session.add(profile)
@@ -427,6 +429,7 @@ def list_residents(
             id=u.id, first_name=profile.first_name, last_name=profile.last_name,
             business_name=profile.business_name, business_field=profile.business_field,
             photo_url=profile.photo_url, photo_pos=profile.photo_pos or "50% 50%",
+            photo_zoom=profile.photo_zoom or 1.0,
             business_level=level, telegram=profile.telegram or "",
         ))
     # «Все» — по уровню (сильные сверху), затем по имени; «рядом» — по имени.
@@ -461,6 +464,7 @@ def _user_out(
         birth_city=(p.birth_city or "") if p else "",
         photo_url=p.photo_url if p else None,
         photo_pos=(p.photo_pos or "50% 50%") if p else "50% 50%",
+        photo_zoom=(p.photo_zoom or 1.0) if p else 1.0,
         telegram=(p.telegram or "") if p else "",
     )
 
@@ -522,7 +526,7 @@ def update_user(
     # Правка анкеты админом: меняем только явно переданные поля.
     profile_fields = ("first_name", "last_name", "business_name",
                       "business_field", "birth_date", "birth_time", "birth_city",
-                      "photo_url", "photo_pos", "telegram")
+                      "photo_url", "photo_pos", "photo_zoom", "telegram")
     data = payload.model_dump(exclude_unset=True)
     if any(f in data for f in profile_fields):
         profile = session.get(UserProfile, user.id)
