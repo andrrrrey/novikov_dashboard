@@ -47,7 +47,10 @@ export default function DashboardLumen() {
     return api.saveProfile({
       first_name: profile.first_name, last_name: profile.last_name,
       business_name: profile.business_name, business_field: profile.business_field,
-      birth_date: profile.birth_date, telegram: profile.telegram || "", ...patch,
+      birth_date: profile.birth_date, birth_time: profile.birth_time || null,
+      birth_city: profile.birth_city || null, photo_url: profile.photo_url || null,
+      photo_pos: profile.photo_pos || "50% 50%", telegram: profile.telegram || "",
+      ...patch,
     }).then(setProfile);
   }
 
@@ -335,7 +338,7 @@ function AvatarModal({ profile, onPhoto, onClose }) {
         <div className="lm-ph-actions">
           <label className={`lm-btn lm-btn-primary${busy ? " is-busy" : ""}`}>
             {busy ? "Загрузка…" : "Загрузить фото с ПК"}
-            <input type="file" accept="image/png,image/jpeg,image/webp"
+            <input type="file" accept="image/*"
                    hidden onChange={upload} disabled={busy} />
           </label>
         </div>

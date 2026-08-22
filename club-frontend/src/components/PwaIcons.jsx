@@ -122,6 +122,27 @@ export function LinkIcon({ size = 16, color = "currentColor" }) {
   );
 }
 
+// Карандаш — «Редактировать анкету».
+export function PencilIcon({ size = 16, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color}
+         strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+    </svg>
+  );
+}
+
+// Стрелки-перекрестье — «Изменить положение фото».
+export function MoveIcon({ size = 18, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color}
+         strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5 9 2 12l3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20" />
+    </svg>
+  );
+}
+
 // Бумажный самолётик — «Написать в телеграм».
 export function TelegramIcon({ size = 20, color = "currentColor" }) {
   return (
