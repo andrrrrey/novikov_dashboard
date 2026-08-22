@@ -294,6 +294,15 @@ def test_profile_photo_pos_roundtrip(client):
                    headers=_auth(token))
     assert r.json()["photo_pos"] == "100% 100%"
 
+    # zoom по умолчанию 1.0, валидный сохраняется, вне диапазона зажимается в 1..3
+    assert client.put("/me/profile", json=base, headers=_auth(token)).json()["photo_zoom"] == 1.0
+    assert client.put("/me/profile", json={**base, "photo_zoom": 1.8},
+                      headers=_auth(token)).json()["photo_zoom"] == 1.8
+    assert client.put("/me/profile", json={**base, "photo_zoom": 9},
+                      headers=_auth(token)).json()["photo_zoom"] == 3.0
+    assert client.put("/me/profile", json={**base, "photo_zoom": 0.2},
+                      headers=_auth(token)).json()["photo_zoom"] == 1.0
+
 
 def test_user_can_upload_photo(client):
     admin = _login(client, ADMIN_EMAIL, ADMIN_PASSWORD)

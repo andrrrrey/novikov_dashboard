@@ -21,6 +21,15 @@ def _normalize_photo_pos(v: Optional[str]) -> str:
     return f"{x}% {y}%"
 
 
+def _normalize_photo_zoom(v) -> float:
+    """Масштаб кадрирования зажимаем в диапазон 1..3."""
+    try:
+        z = float(v)
+    except (TypeError, ValueError):
+        return 1.0
+    return max(1.0, min(3.0, z))
+
+
 def _normalize_telegram(v: Optional[str]) -> Optional[str]:
     """«@ник», «ник» или ссылку t.me/ник приводим к чистому нику без @."""
     if v is None:
@@ -74,6 +83,7 @@ class UserUpdate(BaseModel):
     birth_city: Optional[str] = None
     photo_url: Optional[str] = None
     photo_pos: Optional[str] = None
+    photo_zoom: Optional[float] = None
     telegram: Optional[str] = None
 
     @field_validator("telegram")
@@ -85,6 +95,11 @@ class UserUpdate(BaseModel):
     @classmethod
     def _clean_pos(cls, v: Optional[str]) -> Optional[str]:
         return _normalize_photo_pos(v) if v is not None else None
+
+    @field_validator("photo_zoom")
+    @classmethod
+    def _clean_zoom(cls, v) -> Optional[float]:
+        return _normalize_photo_zoom(v) if v is not None else None
 
 
 class UserOut(BaseModel):
@@ -105,6 +120,7 @@ class UserOut(BaseModel):
     birth_city: str = ""
     photo_url: Optional[str] = None
     photo_pos: str = "50% 50%"
+    photo_zoom: float = 1.0
     telegram: str = ""
 
 
@@ -120,6 +136,7 @@ class ProfileOut(BaseModel):
     birth_city: str = ""
     photo_url: Optional[str] = None
     photo_pos: str = "50% 50%"
+    photo_zoom: float = 1.0
     telegram: str = ""
 
 
@@ -133,12 +150,18 @@ class ProfileUpdate(BaseModel):
     birth_city: Optional[str] = None   # необязательно
     photo_url: str                     # фото обязательно
     photo_pos: Optional[str] = None
+    photo_zoom: Optional[float] = None
     telegram: Optional[str] = None
 
     @field_validator("photo_pos")
     @classmethod
     def _clean_pos(cls, v: Optional[str]) -> str:
         return _normalize_photo_pos(v)
+
+    @field_validator("photo_zoom")
+    @classmethod
+    def _clean_zoom(cls, v) -> float:
+        return _normalize_photo_zoom(v)
 
     @field_validator("first_name", "last_name", "business_name", "business_field")
     @classmethod
@@ -171,6 +194,7 @@ class ResidentOut(BaseModel):
     business_field: str = ""
     photo_url: Optional[str] = None
     photo_pos: str = "50% 50%"
+    photo_zoom: float = 1.0
     business_level: int = 0
     telegram: str = ""
 

@@ -16,6 +16,7 @@ _ADD_COLUMNS = [
     ("userprofile", "birth_time", "VARCHAR NOT NULL DEFAULT ''"),
     ("userprofile", "birth_city", "VARCHAR NOT NULL DEFAULT ''"),
     ("userprofile", "photo_pos", "VARCHAR NOT NULL DEFAULT '50% 50%'"),
+    ("userprofile", "photo_zoom", "FLOAT NOT NULL DEFAULT 1.0"),
 ]
 
 
