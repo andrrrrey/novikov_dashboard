@@ -32,6 +32,7 @@ class UserProfile(SQLModel, table=True):
     birth_time: str = ""          # время рождения "HH:MM" (если известно) — необязательно
     birth_city: str = ""          # город рождения — необязательно
     photo_url: Optional[str] = None
+    photo_pos: str = "50% 50%"    # object-position фото (фокус для круглого аватара)
     telegram: str = ""            # телеграм-ник (без @) для связи между резидентами
     completed: bool = Field(default=False)   # анкета пройдена
 

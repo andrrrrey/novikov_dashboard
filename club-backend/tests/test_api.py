@@ -263,6 +263,38 @@ def test_profile_telegram_roundtrip(client):
     assert client.get("/me/profile", headers=_auth(token)).json()["telegram"] == "my_handle"
 
 
+def test_profile_photo_pos_roundtrip(client):
+    admin = _login(client, ADMIN_EMAIL, ADMIN_PASSWORD)
+    client.post("/admin/users",
+                json={"email": "pos@club.ru", "password": "pass12345"},
+                headers=_auth(admin))
+    token = _login(client, "pos@club.ru", "pass12345")
+    base = {"first_name": "Поз", "last_name": "Иционов",
+            "business_name": "ООО Кадр", "business_field": "Услуги",
+            "birth_date": "1990-01-01", "photo_url": "/uploads/p.jpg"}
+
+    # по умолчанию центр
+    r = client.put("/me/profile", json=base, headers=_auth(token))
+    assert r.status_code == 200, r.text
+    assert r.json()["photo_pos"] == "50% 50%"
+
+    # валидное положение сохраняется
+    r = client.put("/me/profile", json={**base, "photo_pos": "20% 80%"},
+                   headers=_auth(token))
+    assert r.json()["photo_pos"] == "20% 80%"
+
+    # мусор/инъекция чистится до безопасного значения
+    r = client.put("/me/profile",
+                   json={**base, "photo_pos": "url(javascript:alert(1))"},
+                   headers=_auth(token))
+    assert r.json()["photo_pos"] == "50% 50%"
+
+    # выход за диапазон зажимается в 0..100
+    r = client.put("/me/profile", json={**base, "photo_pos": "250% 300%"},
+                   headers=_auth(token))
+    assert r.json()["photo_pos"] == "100% 100%"
+
+
 def test_user_can_upload_photo(client):
     admin = _login(client, ADMIN_EMAIL, ADMIN_PASSWORD)
     client.post("/admin/users",

@@ -6,7 +6,7 @@ import { initials } from "../components/Avatar.jsx";
 import PwaShell from "../components/PwaShell.jsx";
 import PwaGraph from "../components/PwaGraph.jsx";
 import {
-  PlayIcon, QuestionIcon, BookIcon, BoltIcon, BulbIcon,
+  PlayIcon, QuestionIcon, BookIcon, BoltIcon, BulbIcon, PencilIcon, MoveIcon,
 } from "../components/PwaIcons.jsx";
 
 // Боевой дашборд в дизайне PWA (макет Figma node 0-403): hero-фон по уровню,
@@ -64,7 +64,10 @@ export default function DashboardV2() {
     return api.saveProfile({
       first_name: profile.first_name, last_name: profile.last_name,
       business_name: profile.business_name, business_field: profile.business_field,
-      birth_date: profile.birth_date, telegram: profile.telegram || "", ...patch,
+      birth_date: profile.birth_date, birth_time: profile.birth_time || null,
+      birth_city: profile.birth_city || null, photo_url: profile.photo_url || null,
+      photo_pos: profile.photo_pos || "50% 50%", telegram: profile.telegram || "",
+      ...patch,
     }).then(setProfile);
   }
 
@@ -233,20 +236,31 @@ export default function DashboardV2() {
 // Оболочка дашборда: PwaShell + шапка (Смотреть · профиль · Выйти).
 function Frame({ children, profile, logout, onPhoto, heroLevel, cta = null, ctaHref = null }) {
   const [photoOpen, setPhotoOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const name = profile?.first_name || "Резидент";
+  const hasPhoto = !!profile?.photo_url;
   return (
     <PwaShell cta={cta} heroImage={bgForLevel(heroLevel)} ctaHref={ctaHref}
               dashHref="/" resHref="/residents">
       <header className="pwa-header">
         <div className="side left" />
         <div className="pwa-profile">
-          <button type="button" className="pwa-avatar"
+          <button type="button" className={`pwa-avatar${hasPhoto ? " has-photo" : ""}`}
                   onClick={() => profile && setPhotoOpen(true)} aria-label="Фото профиля">
-            {profile?.photo_url
-              ? <img src={profile.photo_url} alt="" />
+            {hasPhoto
+              ? <img src={profile.photo_url} alt=""
+                     style={{ objectPosition: profile.photo_pos || "50% 50%" }} />
               : initials(profile?.first_name, profile?.last_name)}
           </button>
-          <div className="pwa-name">{name}</div>
+          <div className="pwa-name-row">
+            <div className="pwa-name">{name}</div>
+            {profile && (
+              <button type="button" className="pwa-name-edit"
+                      onClick={() => setEditOpen(true)} aria-label="Редактировать анкету">
+                <PencilIcon size={15} color="#9a9a9a" />
+              </button>
+            )}
+          </div>
           {profile?.business_name && <div className="pwa-biz">{profile.business_name}</div>}
           <button type="button" className="pwa-watch" onClick={() => profile && setPhotoOpen(true)}>
             Смотреть
@@ -262,6 +276,9 @@ function Frame({ children, profile, logout, onPhoto, heroLevel, cta = null, ctaH
 
       {photoOpen && profile && onPhoto && (
         <AvatarModal profile={profile} onPhoto={onPhoto} onClose={() => setPhotoOpen(false)} />
+      )}
+      {editOpen && profile && onPhoto && (
+        <ProfileEditModal profile={profile} onSave={onPhoto} onClose={() => setEditOpen(false)} />
       )}
     </PwaShell>
   );
@@ -357,10 +374,21 @@ function PwaInfoTip({ text, size = 20 }) {
   );
 }
 
-// Попап фото профиля: крупное фото + загрузка с ПК / удаление.
+// "50% 50%" → {x:50, y:50}
+function parsePos(pos) {
+  const m = /(\d+(?:\.\d+)?)%\s+(\d+(?:\.\d+)?)%/.exec(pos || "");
+  return m ? { x: +m[1], y: +m[2] } : { x: 50, y: 50 };
+}
+const clampPct = (n) => Math.max(0, Math.min(100, n));
+
+// Попап фото профиля: крупное фото, загрузка с ПК и режим «изменить положение».
 function AvatarModal({ profile, onPhoto, onClose }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [reposition, setReposition] = useState(false);
+  const [pos, setPos] = useState(() => parsePos(profile.photo_pos));
+  const drag = useRef(null);
+  const hasPhoto = !!profile.photo_url;
 
   async function upload(e) {
     const file = e.target.files?.[0];
@@ -370,7 +398,135 @@ function AvatarModal({ profile, onPhoto, onClose }) {
     setError("");
     try {
       const { url } = await api.uploadMyPhoto(file);
-      await onPhoto({ photo_url: url });
+      // Новое фото — центрируем заново.
+      await onPhoto({ photo_url: url, photo_pos: "50% 50%" });
+      setPos({ x: 50, y: 50 });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Перетаскивание: сдвиг курсора по кругу двигает фокус кадра (object-position).
+  function onPointerDown(e) {
+    if (!reposition) return;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    const box = e.currentTarget.getBoundingClientRect();
+    drag.current = { px: e.clientX, py: e.clientY, size: box.width, start: pos };
+  }
+  function onPointerMove(e) {
+    if (!drag.current) return;
+    const d = drag.current;
+    const dxPct = ((e.clientX - d.px) / d.size) * 100;
+    const dyPct = ((e.clientY - d.py) / d.size) * 100;
+    // Тянем вправо → показываем левую часть → object-position уменьшается.
+    setPos({ x: clampPct(d.start.x - dxPct), y: clampPct(d.start.y - dyPct) });
+  }
+  function onPointerUp() { drag.current = null; }
+
+  async function savePos() {
+    setBusy(true);
+    setError("");
+    try {
+      await onPhoto({ photo_pos: `${Math.round(pos.x)}% ${Math.round(pos.y)}%` });
+      setReposition(false);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const objPos = `${pos.x}% ${pos.y}%`;
+  return (
+    <div className="pwa-ph-overlay" onClick={onClose}>
+      <div className="pwa-ph-modal" onClick={(e) => e.stopPropagation()}>
+        <button className="pwa-ph-close" type="button" onClick={onClose} aria-label="Закрыть">×</button>
+
+        <div className={`pwa-ph-photo${hasPhoto ? " has-photo" : ""}${reposition ? " is-repositioning" : ""}`}
+             onPointerDown={onPointerDown} onPointerMove={onPointerMove}
+             onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
+          {hasPhoto
+            ? <img src={profile.photo_url} alt="" draggable="false"
+                   style={{ objectPosition: objPos }} />
+            : initials(profile.first_name, profile.last_name)}
+          {reposition && <span className="pwa-ph-grid" aria-hidden="true" />}
+        </div>
+
+        {reposition && <p className="pwa-ph-tip">Перетащите фото, чтобы выбрать область</p>}
+        {error && <div className="pwa-ph-err">{error}</div>}
+
+        <div className="pwa-ph-actions">
+          {reposition ? (
+            <>
+              <button className={`pwa-ph-btn primary${busy ? " is-busy" : ""}`}
+                      type="button" onClick={savePos} disabled={busy}>
+                {busy ? "Сохраняем…" : "Сохранить положение"}
+              </button>
+              <button className="pwa-ph-btn ghost" type="button" disabled={busy}
+                      onClick={() => { setPos(parsePos(profile.photo_pos)); setReposition(false); }}>
+                Отмена
+              </button>
+            </>
+          ) : (
+            <>
+              <label className={`pwa-ph-btn primary${busy ? " is-busy" : ""}`}>
+                {busy ? "Загрузка…" : "Загрузить фото с ПК"}
+                <input type="file" accept="image/*"
+                       hidden onChange={upload} disabled={busy} />
+              </label>
+              {hasPhoto && (
+                <button className="pwa-ph-btn ghost" type="button" disabled={busy}
+                        onClick={() => setReposition(true)}>
+                  <MoveIcon size={17} color="#fff" />
+                  Изменить положение
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Попап редактирования анкеты (по клику на карандаш у имени).
+const EDIT_FIELDS = [
+  ["last_name", "Фамилия", "text"],
+  ["first_name", "Имя", "text"],
+  ["business_name", "Название бизнеса / компании", "text"],
+  ["business_field", "Сфера или специализация", "text"],
+  ["birth_date", "Дата рождения", "date"],
+  ["birth_time", "Время рождения", "time"],
+  ["birth_city", "Город рождения", "text"],
+  ["telegram", "Телеграм", "text"],
+];
+function ProfileEditModal({ profile, onSave, onClose }) {
+  const [form, setForm] = useState({
+    last_name: profile.last_name || "", first_name: profile.first_name || "",
+    business_name: profile.business_name || "", business_field: profile.business_field || "",
+    birth_date: profile.birth_date || "", birth_time: profile.birth_time || "",
+    birth_city: profile.birth_city || "", telegram: profile.telegram || "",
+  });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+
+  const required = ["last_name", "first_name", "business_name", "business_field", "birth_date"];
+  const filled = required.every((k) => String(form[k]).trim());
+
+  async function save() {
+    if (!filled) { setError("Заполните обязательные поля"); return; }
+    setBusy(true);
+    setError("");
+    try {
+      await onSave({
+        first_name: form.first_name.trim(), last_name: form.last_name.trim(),
+        business_name: form.business_name.trim(), business_field: form.business_field.trim(),
+        birth_date: form.birth_date, birth_time: form.birth_time || null,
+        birth_city: form.birth_city.trim() || null, telegram: form.telegram.trim() || null,
+      });
       onClose();
     } catch (err) {
       setError(err.message);
@@ -380,20 +536,27 @@ function AvatarModal({ profile, onPhoto, onClose }) {
 
   return (
     <div className="pwa-ph-overlay" onClick={onClose}>
-      <div className="pwa-ph-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="pwa-ph-modal pwa-edit-modal" onClick={(e) => e.stopPropagation()}>
         <button className="pwa-ph-close" type="button" onClick={onClose} aria-label="Закрыть">×</button>
-        <div className="pwa-ph-photo">
-          {profile.photo_url
-            ? <img src={profile.photo_url} alt="" />
-            : initials(profile.first_name, profile.last_name)}
+        <h2 className="pwa-edit-title">Ваша анкета</h2>
+        <div className="pwa-edit-form">
+          {EDIT_FIELDS.map(([key, label, type]) => (
+            <label className="pwa-onb-field" key={key}>
+              <span className="pwa-onb-label">
+                {label}{required.includes(key) ? " *" : ""}
+              </span>
+              <input className="pwa-input" type={type}
+                     placeholder={key === "telegram" ? "@username" : ""}
+                     value={form[key]} onChange={(e) => set(key, e.target.value)} />
+            </label>
+          ))}
         </div>
         {error && <div className="pwa-ph-err">{error}</div>}
         <div className="pwa-ph-actions">
-          <label className={`pwa-ph-btn primary${busy ? " is-busy" : ""}`}>
-            {busy ? "Загрузка…" : "Загрузить фото с ПК"}
-            <input type="file" accept="image/png,image/jpeg,image/webp"
-                   hidden onChange={upload} disabled={busy} />
-          </label>
+          <button className={`pwa-ph-btn primary${busy ? " is-busy" : ""}`}
+                  type="button" onClick={save} disabled={busy || !filled}>
+            {busy ? "Сохраняем…" : "Сохранить"}
+          </button>
         </div>
       </div>
     </div>

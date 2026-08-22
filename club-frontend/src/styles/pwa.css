@@ -136,6 +136,32 @@
   border: 1px solid rgba(255, 255, 255, 0.23);
   box-shadow: inset 0 0 49px #6ED94E, 0 10px 34px rgba(0, 0, 0, 0.5);
 }
+/* Когда в аватаре есть фото — убираем зелёное внутреннее свечение: на телефонах
+   оно просвечивало сквозь края обрезанной картинки «зелёными линиями». Свечение
+   нужно только для заглушки-инициалов. Плюс изолируем слой, чтобы обрезка по
+   кругу рисовалась чисто (без артефактов композитинга поверх hero-фона). */
+.pwa-avatar.has-photo {
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.5);
+  background: #0d0d0d;
+  isolation: isolate;
+}
+.pwa-name-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.pwa-name-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  line-height: 0;
+  opacity: 0.75;
+}
+.pwa-name-edit:hover { opacity: 1; }
 .pwa-name {
   font-size: 20px;
   font-weight: 600;
@@ -1308,6 +1334,7 @@ a.pwa-tg {
   cursor: pointer;
 }
 .pwa-ph-photo {
+  position: relative;
   width: 180px;
   height: 180px;
   border-radius: 50%;
@@ -1321,10 +1348,66 @@ a.pwa-tg {
   border: 1px solid rgba(255, 255, 255, 0.23);
   box-shadow: inset 0 0 54px #6ED94E;
 }
+.pwa-ph-photo.has-photo {
+  box-shadow: none;
+  background: #0d0d0d;
+  isolation: isolate;
+}
 .pwa-ph-photo img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+/* Режим «изменить положение»: круг становится «хваталкой», сетка-подсказка. */
+.pwa-ph-photo.is-repositioning {
+  cursor: grab;
+  touch-action: none;
+}
+.pwa-ph-photo.is-repositioning:active { cursor: grabbing; }
+.pwa-ph-photo.is-repositioning img { pointer-events: none; }
+.pwa-ph-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.35)) 33.3% 0 / 1px 100% no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.35)) 66.6% 0 / 1px 100% no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.35)) 0 33.3% / 100% 1px no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.35)) 0 66.6% / 100% 1px no-repeat;
+}
+.pwa-ph-tip {
+  margin: 2px 0 0;
+  color: #b8b8b8;
+  font-size: 13px;
+  text-align: center;
+}
+.pwa-ph-btn.ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* Попап редактирования анкеты */
+.pwa-edit-modal {
+  align-items: stretch;
+  text-align: left;
+  max-height: 86vh;
+  overflow-y: auto;
+}
+.pwa-edit-title {
+  margin: 0 0 4px;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.4px;
+  color: #fff;
+  text-align: center;
+}
+.pwa-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
 }
 .pwa-ph-actions {
   display: flex;

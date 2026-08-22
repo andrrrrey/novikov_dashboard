@@ -1,9 +1,24 @@
 """Pydantic-схемы для входных и выходных данных API."""
 
+import re
 from datetime import date, datetime
 from typing import Optional
 
 from pydantic import BaseModel, EmailStr, field_validator
+
+_POS_RE = re.compile(r"^\s*(\d{1,3})(?:\.\d+)?%\s+(\d{1,3})(?:\.\d+)?%\s*$")
+
+
+def _normalize_photo_pos(v: Optional[str]) -> str:
+    """object-position вида «50% 50%». Чужой ввод чистим — значение уходит в inline-style."""
+    if not v:
+        return "50% 50%"
+    m = _POS_RE.match(v)
+    if not m:
+        return "50% 50%"
+    x = max(0, min(100, int(m.group(1))))
+    y = max(0, min(100, int(m.group(2))))
+    return f"{x}% {y}%"
 
 
 def _normalize_telegram(v: Optional[str]) -> Optional[str]:
@@ -58,12 +73,18 @@ class UserUpdate(BaseModel):
     birth_time: Optional[str] = None
     birth_city: Optional[str] = None
     photo_url: Optional[str] = None
+    photo_pos: Optional[str] = None
     telegram: Optional[str] = None
 
     @field_validator("telegram")
     @classmethod
     def _clean_telegram(cls, v: Optional[str]) -> Optional[str]:
         return _normalize_telegram(v)
+
+    @field_validator("photo_pos")
+    @classmethod
+    def _clean_pos(cls, v: Optional[str]) -> Optional[str]:
+        return _normalize_photo_pos(v) if v is not None else None
 
 
 class UserOut(BaseModel):
@@ -83,6 +104,7 @@ class UserOut(BaseModel):
     birth_time: str = ""
     birth_city: str = ""
     photo_url: Optional[str] = None
+    photo_pos: str = "50% 50%"
     telegram: str = ""
 
 
@@ -97,6 +119,7 @@ class ProfileOut(BaseModel):
     birth_time: str = ""
     birth_city: str = ""
     photo_url: Optional[str] = None
+    photo_pos: str = "50% 50%"
     telegram: str = ""
 
 
@@ -109,7 +132,13 @@ class ProfileUpdate(BaseModel):
     birth_time: Optional[str] = None   # необязательно
     birth_city: Optional[str] = None   # необязательно
     photo_url: str                     # фото обязательно
+    photo_pos: Optional[str] = None
     telegram: Optional[str] = None
+
+    @field_validator("photo_pos")
+    @classmethod
+    def _clean_pos(cls, v: Optional[str]) -> str:
+        return _normalize_photo_pos(v)
 
     @field_validator("first_name", "last_name", "business_name", "business_field")
     @classmethod
@@ -141,6 +170,7 @@ class ResidentOut(BaseModel):
     business_name: str = ""
     business_field: str = ""
     photo_url: Optional[str] = None
+    photo_pos: str = "50% 50%"
     business_level: int = 0
     telegram: str = ""
 

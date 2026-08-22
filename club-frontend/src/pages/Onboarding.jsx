@@ -88,7 +88,7 @@ export default function Onboarding() {
             <div className="pwa-onb-photo-actions">
               <label className="pwa-onb-mini">
                 {uploading ? "Загрузка…" : form.photo_url ? "Заменить фото" : "Прикрепить фото *"}
-                <input type="file" accept="image/png,image/jpeg,image/webp"
+                <input type="file" accept="image/*"
                        hidden onChange={onPhoto} disabled={uploading} />
               </label>
               <span className="pwa-onb-hint">Фото обязательно</span>

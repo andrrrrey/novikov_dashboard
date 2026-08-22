@@ -23,6 +23,35 @@ function plGroups(n) {
   return "групп";
 }
 
+// Варианты сортировки таблицы пользователей.
+const USER_SORTS = [
+  ["new", "Сначала новые"],
+  ["old", "Сначала старые"],
+  ["name", "По имени (А–Я)"],
+  ["influence", "По влиянию"],
+];
+
+// Поиск (имя/фамилия/email/бизнес/сфера) + сортировка списка пользователей.
+function filterSortUsers(users, query, sort) {
+  const q = query.trim().toLowerCase();
+  let out = users;
+  if (q) {
+    out = users.filter((u) => {
+      const hay = [u.first_name, u.last_name, u.email, u.business_name, u.business_field]
+        .filter(Boolean).join(" ").toLowerCase();
+      return hay.includes(q);
+    });
+  }
+  const byNew = (a, b) => new Date(b.created_at) - new Date(a.created_at);
+  const sorted = [...out];
+  if (sort === "new") sorted.sort(byNew);
+  else if (sort === "old") sorted.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  else if (sort === "name") sorted.sort((a, b) =>
+    `${a.last_name} ${a.first_name}`.trim().localeCompare(`${b.last_name} ${b.first_name}`.trim(), "ru"));
+  else if (sort === "influence") sorted.sort((a, b) => (b.influence || 0) - (a.influence || 0) || byNew(a, b));
+  return sorted;
+}
+
 export default function Admin() {
   const { logout } = useAuth();
   const [tab, setTab] = useState("users");
@@ -34,6 +63,9 @@ export default function Admin() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  // Поиск и сортировка таблицы пользователей. По умолчанию — новые сверху.
+  const [userQuery, setUserQuery] = useState("");
+  const [userSort, setUserSort] = useState("new");
 
   async function reload() {
     const [u, s, c, h] = await Promise.all([
@@ -122,12 +154,36 @@ export default function Admin() {
                 Все резиденты клуба с анкетными данными. Можно отредактировать профиль, сбросить
                 пароль, задать «Влияние» или удалить.
               </p>
-              <div className="admin-users">
-                {users.map((u) => (
-                  <UserRow key={u.id} user={u} onReload={reload} onError={setError}
-                           onResetPassword={resetPassword} onRemove={removeUser} />
-                ))}
+              <div className="admin-users-toolbar">
+                <input className="input admin-users-search" type="search"
+                       placeholder="Поиск: имя, email, бизнес, сфера…"
+                       value={userQuery} onChange={(e) => setUserQuery(e.target.value)} />
+                <select className="input admin-users-sort"
+                        value={userSort} onChange={(e) => setUserSort(e.target.value)}>
+                  {USER_SORTS.map(([id, label]) => (
+                    <option key={id} value={id}>{label}</option>
+                  ))}
+                </select>
               </div>
+              {(() => {
+                const shown = filterSortUsers(users, userQuery, userSort);
+                if (shown.length === 0) {
+                  return <p className="muted admin-note">Ничего не найдено.</p>;
+                }
+                return (
+                  <>
+                    <p className="muted admin-users-count">
+                      Показано {shown.length} из {users.length}
+                    </p>
+                    <div className="admin-users">
+                      {shown.map((u) => (
+                        <UserRow key={u.id} user={u} onReload={reload} onError={setError}
+                                 onResetPassword={resetPassword} onRemove={removeUser} />
+                      ))}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </>
         )}
@@ -246,7 +302,7 @@ function CardEditor({ card, onError }) {
         <div className="admin-card-actions">
           <label className="btn admin-mini">
             {uploading ? "Загрузка…" : "Обложка…"}
-            <input type="file" accept="image/png,image/jpeg,image/webp"
+            <input type="file" accept="image/*"
                    hidden onChange={onFile} disabled={uploading} />
           </label>
           {cover && (
@@ -695,10 +751,10 @@ function ProfileEditor({ user, onSaved, onError }) {
     <div className="admin-user-edit">
       <div className="admin-user-edit-photo">
         <Avatar photoUrl={form.photo_url} firstName={form.first_name}
-                lastName={form.last_name} size={56} />
+                lastName={form.last_name} size={56} photoPos={user.photo_pos} />
         <label className="btn admin-mini">
           {uploading ? "Загрузка…" : "Фото…"}
-          <input type="file" accept="image/png,image/jpeg,image/webp"
+          <input type="file" accept="image/*"
                  hidden onChange={onFile} disabled={uploading} />
         </label>
         {form.photo_url && (

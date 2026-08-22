@@ -271,6 +271,12 @@
 .tag-wait { color: var(--gold); background: rgba(231, 178, 76, 0.12); }
 
 /* --- Админка: пользователи с анкетой --- */
+.admin-users-toolbar {
+  display: flex; gap: 10px; margin: 4px 0 10px; flex-wrap: wrap;
+}
+.admin-users-search { flex: 1 1 220px; min-width: 0; }
+.admin-users-sort { flex: 0 0 auto; }
+.admin-users-count { margin: 0 0 8px; font-size: 13px; }
 .admin-users { display: flex; flex-direction: column; gap: 10px; }
 .admin-user {
   border: 1px solid var(--border); border-radius: var(--radius);

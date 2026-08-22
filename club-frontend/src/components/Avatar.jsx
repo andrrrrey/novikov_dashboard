@@ -13,12 +13,12 @@ function colorFor(seed = "") {
   return PALETTE[h % PALETTE.length];
 }
 
-export default function Avatar({ photoUrl, firstName, lastName, size = 44, className = "" }) {
+export default function Avatar({ photoUrl, firstName, lastName, size = 44, className = "", photoPos }) {
   const style = { width: size, height: size, fontSize: Math.round(size * 0.38) };
   if (photoUrl) {
     return (
       <span className={`avatar ${className}`} style={style}>
-        <img src={photoUrl} alt="" />
+        <img src={photoUrl} alt="" style={{ objectPosition: photoPos || "50% 50%" }} />
       </span>
     );
   }
