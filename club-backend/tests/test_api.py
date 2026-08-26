@@ -209,6 +209,46 @@ def test_admin_can_edit_profile(client):
     assert r.json()["business_name"] == "Кофейня «Бодрый»"
 
 
+def test_admin_sees_bottleneck_level_and_quiz_answers(client):
+    """В таблице админки видно узкое место и уровень; ответы на опросник доступны отдельно."""
+    admin = _login(client, ADMIN_EMAIL, ADMIN_PASSWORD)
+    r = client.post("/admin/users",
+                    json={"email": "answers@club.ru", "password": "pass12345"},
+                    headers=_auth(admin))
+    uid = r.json()["id"]
+    # до теста — узкого места и уровня нет, ответы недоступны
+    assert r.json()["bottleneck_aspect"] is None
+    assert r.json()["business_level"] is None
+    assert client.get(f"/admin/users/{uid}/quiz", headers=_auth(admin)).status_code == 404
+
+    token = _login(client, "answers@club.ru", "pass12345")
+    # M=1, S=2, Mg=1 -> узкое место Маркетинг (приоритет над Менеджментом), уровень 1
+    client.post("/quiz/submit", json={"answers": {"M": 1, "S": 3, "Mg": 1}},
+                headers=_auth(token))
+
+    r = client.get("/admin/users", headers=_auth(admin))
+    row = next(u for u in r.json() if u["email"] == "answers@club.ru")
+    assert row["quiz_taken"] is True
+    assert row["bottleneck_aspect"] == "marketing"
+    assert row["bottleneck_level"] == 1
+    assert row["business_level"] == 1
+
+    r = client.get(f"/admin/users/{uid}/quiz", headers=_auth(admin))
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["bottleneck_aspect"] == "marketing"
+    assert data["marketing_level"] == 1 and data["sales_level"] == 2
+    assert [a["code"] for a in data["answers"]] == ["M", "S", "Mg"]
+    sales = next(a for a in data["answers"] if a["code"] == "S")
+    assert sales["aspect_label"] == "Продажи"
+    assert sales["answer_index"] == 3
+    assert sales["level"] == 2
+    assert sales["answer"]
+
+    # обычному резиденту чужие ответы не отдаём
+    assert client.get(f"/admin/users/{uid}/quiz", headers=_auth(token)).status_code == 403
+
+
 def test_residents_band_and_demo(client):
     admin = _login(client, ADMIN_EMAIL, ADMIN_PASSWORD)
     client.post("/admin/users",

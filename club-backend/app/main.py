@@ -34,11 +34,11 @@ from app.schemas import (
     AdminStats, CardAdminOut, CardOut, CardUpdate, CategoryProgress, DashboardOut,
     ExperienceOut, GcGroupOut, GcGroupUpdate, GetCourseOut, GetCourseUpdate, HintOut,
     HintUpdate, InfoTipsOut, InfoTipsUpdate, KnowledgeOut, ProfileOut, ProfileUpdate,
-    ProgressConfigOut, ProgressConfigUpdate, PromoOut, PromoUpdate, QuizOption,
-    QuizQuestionOut, QuizSubmit, ResidentOut, SyncOut, TokenResponse,
-    UploadOut, UserCreate, UserOut, UserRegister, UserUpdate,
+    ProgressConfigOut, ProgressConfigUpdate, PromoOut, PromoUpdate, QuizAnswerOut,
+    QuizOption, QuizQuestionOut, QuizSubmit, ResidentOut, SyncOut, TokenResponse,
+    UploadOut, UserCreate, UserOut, UserQuizOut, UserRegister, UserUpdate,
 )
-from app.scoring import evaluate, Aspect
+from app.scoring import evaluate, Aspect, ASPECT_LABELS
 from app.security import (
     create_access_token, get_current_user, hash_password,
     require_admin, verify_password,
@@ -447,13 +447,16 @@ def _influence(session: Session, user_id: int) -> int:
 
 
 def _user_out(
-    user: User, *, quiz_taken: bool, influence: int,
-    profile: Optional[UserProfile] = None,
+    user: User, *, quiz: Optional[QuizResult], influence: int,
+    profile: Optional[UserProfile] = None, biz_level: Optional[int] = None,
 ) -> UserOut:
     p = profile
     return UserOut(
         id=user.id, email=user.email, role=user.role, created_at=user.created_at,
-        quiz_taken=quiz_taken, influence=influence,
+        quiz_taken=quiz is not None, influence=influence,
+        bottleneck_aspect=quiz.bottleneck_aspect if quiz else None,
+        bottleneck_level=quiz.bottleneck_level if quiz else None,
+        business_level=biz_level if quiz else None,
         profile_completed=bool(p and p.completed),
         first_name=p.first_name if p else "",
         last_name=p.last_name if p else "",
@@ -472,12 +475,14 @@ def _user_out(
 @app.get("/admin/users", response_model=list[UserOut])
 def list_users(_: User = Depends(require_admin), session: Session = Depends(get_session)):
     users = session.exec(select(User).order_by(User.created_at.desc())).all()
-    taken_ids = {r.user_id for r in session.exec(select(QuizResult)).all()}
+    quizzes = {r.user_id: r for r in session.exec(select(QuizResult)).all()}
     influence = {s.user_id: s.influence for s in session.exec(select(UserStats)).all()}
     profiles = {p.user_id: p for p in session.exec(select(UserProfile)).all()}
+    exp_map = exp_assignments(session)   # считаем один раз на весь список
     return [
-        _user_out(u, quiz_taken=u.id in taken_ids, influence=influence.get(u.id, 0),
-                  profile=profiles.get(u.id))
+        _user_out(u, quiz=quizzes.get(u.id), influence=influence.get(u.id, 0),
+                  profile=profiles.get(u.id),
+                  biz_level=business_level(session, u, exp_map) if u.id in quizzes else None)
         for u in users
     ]
 
@@ -495,7 +500,7 @@ def create_user(
     session.add(user)
     session.commit()
     session.refresh(user)
-    return _user_out(user, quiz_taken=False, influence=0)
+    return _user_out(user, quiz=None, influence=0)
 
 
 @app.patch("/admin/users/{user_id}", response_model=UserOut)
@@ -539,11 +544,61 @@ def update_user(
 
     session.commit()
     session.refresh(user)
-    taken = session.exec(
+    quiz = session.exec(
         select(QuizResult).where(QuizResult.user_id == user.id)
-    ).first() is not None
-    return _user_out(user, quiz_taken=taken, influence=_influence(session, user.id),
-                     profile=session.get(UserProfile, user.id))
+    ).first()
+    return _user_out(user, quiz=quiz, influence=_influence(session, user.id),
+                     profile=session.get(UserProfile, user.id),
+                     biz_level=business_level(session, user, exp_assignments(session))
+                     if quiz else None)
+
+
+@app.get("/admin/users/{user_id}/quiz", response_model=UserQuizOut)
+def user_quiz(
+    user_id: int,
+    _: User = Depends(require_admin),
+    session: Session = Depends(get_session),
+):
+    """Ответы резидента на опросник — вопрос, выбранный вариант и его уровень."""
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+    result = session.exec(
+        select(QuizResult).where(QuizResult.user_id == user_id)
+    ).first()
+    if result is None:
+        raise HTTPException(status_code=404, detail="Резидент ещё не проходил тест")
+
+    try:
+        raw = json.loads(result.answers_json)
+    except (TypeError, ValueError):
+        raw = {}
+    if not isinstance(raw, dict):
+        raw = {}
+
+    answers: list[QuizAnswerOut] = []
+    for q in QUIZ:
+        options = q["options"]
+        index = raw.get(q["code"])
+        # Ответ мог быть сохранён до правки квиза — тогда варианта уже нет.
+        option = (options[index - 1]
+                  if isinstance(index, int) and 1 <= index <= len(options) else None)
+        answers.append(QuizAnswerOut(
+            code=q["code"], aspect=q["aspect"].value,
+            aspect_label=ASPECT_LABELS[q["aspect"]], question=q["text"],
+            answer=option["text"] if option else None,
+            answer_index=index if option else None,
+            level=option["level"] if option else None,
+        ))
+
+    return UserQuizOut(
+        user_id=user.id, email=user.email, taken_at=result.taken_at,
+        marketing_level=result.marketing_level, sales_level=result.sales_level,
+        management_level=result.management_level,
+        bottleneck_aspect=result.bottleneck_aspect,
+        bottleneck_level=result.bottleneck_level,
+        answers=answers,
+    )
 
 
 @app.delete("/admin/users/{user_id}", status_code=204)

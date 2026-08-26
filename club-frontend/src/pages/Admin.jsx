@@ -648,6 +648,7 @@ function InfluenceEditor({ user, onSaved, onError }) {
 // --- Строка пользователя: анкета + действия админа (просмотр + редактирование) ---
 function UserRow({ user, onReload, onError, onResetPassword, onRemove }) {
   const [editing, setEditing] = useState(false);
+  const [showQuiz, setShowQuiz] = useState(false);
   const isAdmin = user.role === "admin";
   const fullName = `${user.first_name} ${user.last_name}`.trim();
 
@@ -677,6 +678,25 @@ function UserRow({ user, onReload, onError, onResetPassword, onRemove }) {
               {user.birth_city && <span className="muted"> · {user.birth_city}</span>}
             </div>
           )}
+          {!isAdmin && (
+            <div className="admin-user-meta">
+              <span className="admin-user-meta-item">
+                <span className="admin-user-meta-lbl">Узкое место</span>
+                <span className="admin-user-meta-val">
+                  {user.quiz_taken
+                    ? `${ASPECT_LABEL[user.bottleneck_aspect] || user.bottleneck_aspect}` +
+                      `${user.bottleneck_level ? ` · ур. ${user.bottleneck_level}` : ""}`
+                    : "—"}
+                </span>
+              </span>
+              <span className="admin-user-meta-item">
+                <span className="admin-user-meta-lbl">Уровень</span>
+                <span className="admin-user-meta-val">
+                  {user.quiz_taken && user.business_level != null ? user.business_level : "—"}
+                </span>
+              </span>
+            </div>
+          )}
         </div>
         <div className="admin-user-side">
           {!isAdmin && (
@@ -689,6 +709,13 @@ function UserRow({ user, onReload, onError, onResetPassword, onRemove }) {
             {!isAdmin && (
               <button className="btn admin-mini" onClick={() => setEditing((v) => !v)}>
                 {editing ? "Свернуть" : "Профиль"}
+              </button>
+            )}
+            {!isAdmin && (
+              <button className="btn admin-mini" disabled={!user.quiz_taken}
+                      title={user.quiz_taken ? "" : "Резидент ещё не проходил тест"}
+                      onClick={() => setShowQuiz((v) => !v)}>
+                {showQuiz ? "Скрыть ответы" : "Ответы"}
               </button>
             )}
             <button className="btn admin-mini" onClick={() => onResetPassword(user)}>Пароль</button>
@@ -705,6 +732,64 @@ function UserRow({ user, onReload, onError, onResetPassword, onRemove }) {
                        onSaved={() => { setEditing(false); onReload(); }}
                        onError={onError} />
       )}
+      {showQuiz && !isAdmin && user.quiz_taken && (
+        <QuizAnswers user={user} onError={onError} />
+      )}
+    </div>
+  );
+}
+
+// --- Ответы резидента на опросник (грузим по требованию, при раскрытии) ---
+function QuizAnswers({ user, onError }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    api.userQuiz(user.id)
+      .then((d) => { if (alive) setData(d); })
+      .catch((err) => { if (alive) onError(err.message); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [user.id]);
+
+  if (loading) return <div className="admin-user-quiz muted">Загружаем ответы…</div>;
+  if (!data) return null;
+
+  const taken = data.taken_at ? new Date(data.taken_at).toLocaleString("ru-RU") : "—";
+  return (
+    <div className="admin-user-quiz">
+      <div className="admin-user-quiz-head">
+        <span>Ответы на опросник</span>
+        <span className="muted">Пройден: {taken}</span>
+      </div>
+      <div className="admin-user-quiz-levels">
+        <span>Маркетинг: <b>{data.marketing_level}</b></span>
+        <span>Продажи: <b>{data.sales_level}</b></span>
+        <span>Менеджмент: <b>{data.management_level}</b></span>
+        <span>
+          Узкое место: <b>{ASPECT_LABEL[data.bottleneck_aspect] || data.bottleneck_aspect}</b>
+          {" "}· ур. <b>{data.bottleneck_level}</b>
+        </span>
+      </div>
+      <ol className="admin-user-quiz-list">
+        {data.answers.map((a) => (
+          <li className="admin-user-quiz-item" key={a.code}>
+            <div className="admin-user-quiz-q">
+              <span className="muted">{a.aspect_label}. </span>{a.question}
+            </div>
+            <div className="admin-user-quiz-a">
+              {a.answer
+                ? <>
+                    {a.answer}
+                    {a.level != null && <span className="muted"> · уровень {a.level}</span>}
+                  </>
+                : <span className="muted">ответ не сохранён</span>}
+            </div>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }
