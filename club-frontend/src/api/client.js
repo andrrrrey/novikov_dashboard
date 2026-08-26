@@ -137,6 +137,8 @@ export const api = {
   createUser: (email, password) => request("/admin/users", { method: "POST", body: { email, password } }),
   updateUser: (id, patch) => request(`/admin/users/${id}`, { method: "PATCH", body: patch }),
   deleteUser: (id) => request(`/admin/users/${id}`, { method: "DELETE" }),
+  // Ответы резидента на опросник (для просмотра в админке)
+  userQuiz: (id) => request(`/admin/users/${id}/quiz`),
   stats: () => request("/admin/stats"),
 
   listCards: () => request("/admin/cards"),

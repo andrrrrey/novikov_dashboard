@@ -301,6 +301,36 @@
 }
 .admin-user-edit-photo { display: flex; align-items: center; gap: 10px; }
 
+/* Узкое место и уровень резидента в строке таблицы */
+.admin-user-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.admin-user-meta-item {
+  display: inline-flex; align-items: baseline; gap: 6px;
+  padding: 3px 10px; border-radius: 999px;
+  border: 1px solid var(--border); background: rgba(255, 255, 255, 0.03);
+  font-size: 12px;
+}
+.admin-user-meta-lbl {
+  color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px;
+  white-space: nowrap;
+}
+.admin-user-meta-val { font-weight: 600; }
+
+/* Раскрытые ответы на опросник */
+.admin-user-quiz {
+  margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-strong);
+  font-size: 13px;
+}
+.admin-user-quiz-head {
+  display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between;
+  font-weight: 700; margin-bottom: 8px;
+}
+.admin-user-quiz-levels {
+  display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 10px; color: var(--text-dim);
+}
+.admin-user-quiz-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 10px; }
+.admin-user-quiz-q { color: var(--text-dim); }
+.admin-user-quiz-a { margin-top: 2px; font-weight: 600; }
+
 @media (max-width: 620px) {
   .admin-user-main { flex-wrap: wrap; }
   .admin-user-side { width: 100%; justify-content: space-between; }

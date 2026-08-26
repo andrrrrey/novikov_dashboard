@@ -109,6 +109,10 @@ class UserOut(BaseModel):
     created_at: datetime
     quiz_taken: bool = False
     influence: int = 0
+    # Результат теста: узкое место и текущий уровень резидента (None — тест не пройден).
+    bottleneck_aspect: Optional[str] = None
+    bottleneck_level: Optional[int] = None
+    business_level: Optional[int] = None
     # Анкета резидента (для таблицы всех пользователей в админке).
     profile_completed: bool = False
     first_name: str = ""
@@ -214,6 +218,29 @@ class QuizQuestionOut(BaseModel):
 
 class QuizSubmit(BaseModel):
     answers: dict[str, int]   # {"M": 3, "S": 1, "Mg": 2} значение = индекс варианта
+
+
+# --- Ответы резидента на опросник (админка) ---
+class QuizAnswerOut(BaseModel):
+    code: str
+    aspect: str
+    aspect_label: str
+    question: str
+    answer: Optional[str] = None        # текст выбранного варианта (None — ответа нет)
+    answer_index: Optional[int] = None  # номер варианта (1-based)
+    level: Optional[int] = None         # уровень выбранного варианта
+
+
+class UserQuizOut(BaseModel):
+    user_id: int
+    email: str
+    taken_at: datetime
+    marketing_level: int
+    sales_level: int
+    management_level: int
+    bottleneck_aspect: str
+    bottleneck_level: int
+    answers: list[QuizAnswerOut] = []
 
 
 # --- Дашборд ---
