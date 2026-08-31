@@ -56,9 +56,16 @@ def test_evaluate_requires_all_aspects():
         evaluate({Aspect.MARKETING: 1})
 
 
+def test_evaluate_accepts_levels_above_three():
+    # Шкала уровней расширена (1..N), уровни выше 3 — валидны.
+    result = evaluate({Aspect.MARKETING: 7, Aspect.SALES: 5, Aspect.MANAGEMENT: 4})
+    assert result["marketing_level"] == 7
+    assert result["bottleneck_aspect"] == "management" and result["bottleneck_level"] == 4
+
+
 def test_evaluate_validates_level_range():
     with pytest.raises(ValueError):
-        evaluate({Aspect.MARKETING: 4, Aspect.SALES: 1, Aspect.MANAGEMENT: 1})
+        evaluate({Aspect.MARKETING: 0, Aspect.SALES: 1, Aspect.MANAGEMENT: 1})
 
 
 # --- Квиз: 3 вопроса и маппинг индекс варианта -> уровень -------------------
@@ -72,7 +79,7 @@ def test_quiz_has_three_questions_one_per_aspect():
 
 def test_answers_to_levels_maps_option_index_to_level():
     # Индексы 1-based; берём варианты с заведомо известными уровнями.
-    # Маркетинг: 4 варианта -> уровни 1,1,2,3 ; Продажи: 1,1,2,2,3,3 ; Менеджмент: 1,1,2,3
+    # Маркетинг: уровни 1,1,2,3,4,5,6,7 ; Продажи: 1,1,2,3,4,5,5,6,7 ; Менеджмент: 1,2,3,4,5,6,7
     levels = answers_to_levels({"M": 4, "S": 3, "Mg": 1})
     assert levels == {
         Aspect.MARKETING: 3,
