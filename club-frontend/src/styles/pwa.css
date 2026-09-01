@@ -1067,6 +1067,11 @@ button.pwa-rescard-person {
   right: 0;
   bottom: 66px;
   z-index: 1;
+  /* Потолок высоты, чтобы лист не вылезал за верх экрана: на длинном списке
+     упирается в него и включается внутренний скролл вариантов (.pwa-quiz-opts),
+     а шапка/вопрос/кнопки остаются на месте. */
+  max-height: calc(100dvh - 82px);
+  overflow: hidden;
   background: #141414;
   border-radius: 30px;
   padding: 26px 20px 26px;
@@ -1101,6 +1106,7 @@ button.pwa-rescard-person {
   transition: width 0.25s ease;
 }
 .pwa-quiz-q {
+  flex: none;
   margin: 20px 0;
   font-size: 22px;
   font-weight: 700;
@@ -1109,9 +1115,14 @@ button.pwa-rescard-person {
   color: #fff;
 }
 .pwa-quiz-opts {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  padding-right: 2px;
 }
 .pwa-quiz-opt {
   display: flex;
