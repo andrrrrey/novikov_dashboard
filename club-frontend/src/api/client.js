@@ -134,6 +134,29 @@ export const api = {
   },
 
   listUsers: () => request("/admin/users"),
+  // Выгрузка резидентов в Excel. Общий request() парсит JSON — для бинарного
+  // файла качаем сырым fetch с токеном и кликаем временную ссылку.
+  exportUsers: async () => {
+    const token = getToken();
+    let res;
+    try {
+      res = await fetch(`${BASE}/admin/users/export`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+    } catch {
+      throw new Error("Нет связи с сервером. Проверьте интернет-соединение и попробуйте ещё раз.");
+    }
+    if (!res.ok) throw new Error(messageFromStatus(res.status));
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "residents.xlsx";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
   createUser: (email, password) => request("/admin/users", { method: "POST", body: { email, password } }),
   updateUser: (id, patch) => request(`/admin/users/${id}`, { method: "PATCH", body: patch }),
   deleteUser: (id) => request(`/admin/users/${id}`, { method: "DELETE" }),

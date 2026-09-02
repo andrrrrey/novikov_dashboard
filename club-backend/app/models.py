@@ -51,6 +51,7 @@ class QuizResult(SQLModel, table=True):
 
     answers_json: str             # сырые ответы, для истории/аудита
     taken_at: datetime = Field(default_factory=_now)
+    quiz_version: int = Field(default=1)   # версия опросника; старые строки = 1
 
 
 class ContentCard(SQLModel, table=True):

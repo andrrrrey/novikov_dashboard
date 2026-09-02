@@ -6,4 +6,5 @@ pyjwt
 pydantic[email]
 python-multipart
 httpx
+openpyxl
 pytest
