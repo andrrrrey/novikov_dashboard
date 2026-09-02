@@ -276,6 +276,8 @@ class KnowledgeOut(BaseModel):
 
 class DashboardOut(BaseModel):
     quiz_taken: bool
+    # Нужно пройти тест заново: сохранён результат старой версии опросника.
+    needs_requiz: bool = False
     marketing_level: Optional[int] = None
     sales_level: Optional[int] = None
     management_level: Optional[int] = None

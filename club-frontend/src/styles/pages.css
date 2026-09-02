@@ -254,6 +254,11 @@
 .admin-stat-label { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
 .admin-block { padding: 22px; margin-bottom: 20px; }
 .admin-h2 { font-size: 17px; font-weight: 700; margin: 0 0 16px; }
+.admin-h2-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin: 0 0 16px;
+}
+.admin-h2-row .admin-h2 { margin: 0; }
 .admin-add { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; }
 .admin-table { display: flex; flex-direction: column; }
 .admin-row {

@@ -115,6 +115,52 @@ def test_full_resident_flow(client):
     assert data["promo_title"] == "Запустить траекторию развития"
 
 
+def test_needs_requiz_for_old_quiz_version(client):
+    admin = _login(client, ADMIN_EMAIL, ADMIN_PASSWORD)
+    client.post("/admin/users",
+                json={"email": "requiz@club.ru", "password": "pass12345"},
+                headers=_auth(admin))
+    token = _login(client, "requiz@club.ru", "pass12345")
+
+    # Свежий сабмит пишет текущую версию — повторно проходить не нужно.
+    client.post("/quiz/submit", json={"answers": {"M": 1, "S": 1, "Mg": 1}},
+                headers=_auth(token))
+    assert client.get("/me/dashboard", headers=_auth(token)).json()["needs_requiz"] is False
+
+    # Эмулируем результат старой версии — правим строку напрямую.
+    import app.database as database
+    from sqlmodel import Session, select
+    from app.models import QuizResult, User
+    with Session(database.engine) as s:
+        u = s.exec(select(User).where(User.email == "requiz@club.ru")).first()
+        qr = s.exec(select(QuizResult).where(QuizResult.user_id == u.id)).first()
+        qr.quiz_version = 1
+        s.add(qr)
+        s.commit()
+    assert client.get("/me/dashboard", headers=_auth(token)).json()["needs_requiz"] is True
+
+    # Повторное прохождение снимает флаг.
+    client.post("/quiz/submit", json={"answers": {"M": 2, "S": 2, "Mg": 2}},
+                headers=_auth(token))
+    assert client.get("/me/dashboard", headers=_auth(token)).json()["needs_requiz"] is False
+
+
+def test_admin_users_export_xlsx(client):
+    admin = _login(client, ADMIN_EMAIL, ADMIN_PASSWORD)
+    r = client.get("/admin/users/export", headers=_auth(admin))
+    assert r.status_code == 200
+    assert "spreadsheetml" in r.headers["content-type"]
+    assert r.content[:2] == b"PK"          # .xlsx = zip-архив
+    assert "residents.xlsx" in r.headers.get("content-disposition", "")
+
+    # Не-админ не имеет доступа к выгрузке.
+    client.post("/admin/users",
+                json={"email": "plain@club.ru", "password": "pass12345"},
+                headers=_auth(admin))
+    token = _login(client, "plain@club.ru", "pass12345")
+    assert client.get("/admin/users/export", headers=_auth(token)).status_code == 403
+
+
 def test_balanced_when_all_levels_equal(client):
     admin = _login(client, ADMIN_EMAIL, ADMIN_PASSWORD)
     client.post("/admin/users",

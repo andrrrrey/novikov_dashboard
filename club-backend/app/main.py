@@ -8,10 +8,13 @@ import json
 import os
 import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+from io import BytesIO
 from typing import Optional
 
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session, select
@@ -29,7 +32,7 @@ from app.models import (
 from app.progress import (
     CATEGORIES, business_level, compute_user_progress, exp_assignments,
 )
-from app.quiz_data import QUIZ, answers_to_levels
+from app.quiz_data import QUIZ, QUIZ_VERSION, answers_to_levels
 from app.schemas import (
     AdminStats, CardAdminOut, CardOut, CardUpdate, CategoryProgress, DashboardOut,
     ExperienceOut, GcGroupOut, GcGroupUpdate, GetCourseOut, GetCourseUpdate, HintOut,
@@ -182,9 +185,12 @@ def submit_quiz(
         for key, value in result.items():
             setattr(existing, key, value)
         existing.answers_json = json.dumps(payload.answers)
+        existing.quiz_version = QUIZ_VERSION
+        existing.taken_at = datetime.now(timezone.utc)
     else:
         session.add(QuizResult(
-            user_id=user.id, answers_json=json.dumps(payload.answers), **result
+            user_id=user.id, answers_json=json.dumps(payload.answers),
+            quiz_version=QUIZ_VERSION, **result
         ))
     session.commit()
     return _build_dashboard(user, session)
@@ -306,6 +312,7 @@ def _build_dashboard(user: User, session: Session) -> DashboardOut:
 
     return DashboardOut(
         quiz_taken=True,
+        needs_requiz=result.quiz_version < QUIZ_VERSION,
         marketing_level=result.marketing_level,
         sales_level=result.sales_level,
         management_level=result.management_level,
@@ -469,6 +476,78 @@ def _user_out(
         photo_pos=(p.photo_pos or "50% 50%") if p else "50% 50%",
         photo_zoom=(p.photo_zoom or 1.0) if p else 1.0,
         telegram=(p.telegram or "") if p else "",
+    )
+
+
+# Заголовки и порядок колонок выгрузки резидентов в Excel.
+_EXPORT_COLUMNS = [
+    "Email", "Фамилия", "Имя", "Бизнес", "Сфера", "Дата рождения", "Телеграм",
+    "Роль", "Тест пройден", "Узкое место", "Уровень бизнеса",
+    "Маркетинг", "Продажи", "Менеджмент", "Влияние", "Дата регистрации",
+]
+
+
+@app.get("/admin/users/export")
+def export_users(_: User = Depends(require_admin), session: Session = Depends(get_session)):
+    """Выгрузка таблицы резидентов с уровнями в .xlsx (openpyxl)."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+    from openpyxl.utils import get_column_letter
+
+    users = session.exec(select(User).order_by(User.created_at.desc())).all()
+    quizzes = {r.user_id: r for r in session.exec(select(QuizResult)).all()}
+    influence = {s.user_id: s.influence for s in session.exec(select(UserStats)).all()}
+    profiles = {p.user_id: p for p in session.exec(select(UserProfile)).all()}
+    exp_map = exp_assignments(session)   # один расчёт на весь список
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Резиденты"
+    ws.append(_EXPORT_COLUMNS)
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+
+    def _date(d) -> str:
+        return d.strftime("%d.%m.%Y") if d else ""
+
+    for u in users:
+        q = quizzes.get(u.id)
+        p = profiles.get(u.id)
+        biz = business_level(session, u, exp_map) if q else None
+        bottleneck = ""
+        if q:
+            label = ASPECT_LABELS.get(Aspect(q.bottleneck_aspect), q.bottleneck_aspect)
+            bottleneck = f"{label} · ур. {q.bottleneck_level}"
+        ws.append([
+            u.email,
+            p.last_name if p else "",
+            p.first_name if p else "",
+            p.business_name if p else "",
+            p.business_field if p else "",
+            _date(p.birth_date if p else None),
+            (p.telegram or "") if p else "",
+            "админ" if u.role == "admin" else "резидент",
+            "да" if q else "нет",
+            bottleneck,
+            biz if biz is not None else "",
+            q.marketing_level if q else "",
+            q.sales_level if q else "",
+            q.management_level if q else "",
+            influence.get(u.id, 0),
+            _date(u.created_at),
+        ])
+
+    # Немного шире колонки для читаемости.
+    for i in range(1, len(_EXPORT_COLUMNS) + 1):
+        ws.column_dimensions[get_column_letter(i)].width = 18
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="residents.xlsx"'},
     )
 
 

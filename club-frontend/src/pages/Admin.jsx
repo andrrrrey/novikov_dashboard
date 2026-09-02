@@ -66,6 +66,19 @@ export default function Admin() {
   // Поиск и сортировка таблицы пользователей. По умолчанию — новые сверху.
   const [userQuery, setUserQuery] = useState("");
   const [userSort, setUserSort] = useState("new");
+  const [exporting, setExporting] = useState(false);
+
+  async function exportUsers() {
+    setError("");
+    setExporting(true);
+    try {
+      await api.exportUsers();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setExporting(false);
+    }
+  }
 
   async function reload() {
     const [u, s, c, h] = await Promise.all([
@@ -149,7 +162,12 @@ export default function Admin() {
             </div>
 
             <div className="panel admin-block">
-              <h2 className="admin-h2">Пользователи</h2>
+              <div className="admin-h2-row">
+                <h2 className="admin-h2">Пользователи</h2>
+                <button className="btn admin-mini" onClick={exportUsers} disabled={exporting}>
+                  {exporting ? "Готовим…" : "Скачать Excel"}
+                </button>
+              </div>
               <p className="muted admin-note">
                 Все резиденты клуба с анкетными данными. Можно отредактировать профиль, сбросить
                 пароль, задать «Влияние» или удалить.

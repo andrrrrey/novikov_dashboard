@@ -225,12 +225,44 @@ export default function DashboardV2() {
           </section>
         )}
 
-        {/* Пройти тест заново */}
+        {/* Пройти тест снова */}
         <button type="button" className="pwa-retake" onClick={() => navigate("/quiz")}>
-          Пройти тест заново
+          Пройти тест снова
         </button>
       </div>
+
+      {data.needs_requiz && (
+        <RequizModal onGo={() => navigate("/quiz")} />
+      )}
     </Frame>
+  );
+}
+
+// Попап «нужно пройти тест снова»: показывается тем, у кого сохранён результат
+// старой версии опросника. Закрывается на текущий сеанс (появится снова при
+// следующем входе, пока тест не пройден заново).
+function RequizModal({ onGo }) {
+  const [open, setOpen] = useState(true);
+  if (!open) return null;
+  return (
+    <div className="pwa-ph-overlay" onClick={() => setOpen(false)}>
+      <div className="pwa-ph-modal" onClick={(e) => e.stopPropagation()}>
+        <button className="pwa-ph-close" type="button"
+                onClick={() => setOpen(false)} aria-label="Закрыть">×</button>
+        <h2 className="pwa-edit-title">Вам необходимо пройти тест снова</h2>
+        <p className="pwa-reco-text" style={{ textAlign: "center", margin: "6px 0 4px" }}>
+          Опросник обновился. Пройдите его заново, чтобы обновить ваш уровень и рекомендации.
+        </p>
+        <div className="pwa-ph-actions">
+          <button className="pwa-ph-btn primary" type="button" onClick={onGo}>
+            Пройти тест
+          </button>
+          <button className="pwa-ph-btn ghost" type="button" onClick={() => setOpen(false)}>
+            Позже
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
