@@ -18,6 +18,7 @@ _ADD_COLUMNS = [
     ("userprofile", "photo_pos", "VARCHAR NOT NULL DEFAULT '50% 50%'"),
     ("userprofile", "photo_zoom", "FLOAT NOT NULL DEFAULT 1.0"),
     ("quizresult", "quiz_version", "INTEGER NOT NULL DEFAULT 1"),
+    ("quizresult", "attempts", "INTEGER NOT NULL DEFAULT 1"),
 ]
 
 

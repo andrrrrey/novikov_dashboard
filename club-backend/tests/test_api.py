@@ -145,6 +145,46 @@ def test_needs_requiz_for_old_quiz_version(client):
     assert client.get("/me/dashboard", headers=_auth(token)).json()["needs_requiz"] is False
 
 
+def test_admin_sees_first_pass_vs_retake(client):
+    admin = _login(client, ADMIN_EMAIL, ADMIN_PASSWORD)
+    client.post("/admin/users",
+                json={"email": "attempts@club.ru", "password": "pass12345"},
+                headers=_auth(admin))
+    token = _login(client, "attempts@club.ru", "pass12345")
+
+    def _row():
+        r = client.get("/admin/users", headers=_auth(admin))
+        return next(u for u in r.json() if u["email"] == "attempts@club.ru")
+
+    # Первое прохождение: не перепройден, не устарел.
+    client.post("/quiz/submit", json={"answers": {"M": 1, "S": 1, "Mg": 1}},
+                headers=_auth(token))
+    row = _row()
+    assert row["quiz_taken"] is True
+    assert row["quiz_retaken"] is False and row["quiz_outdated"] is False
+
+    # Повторное прохождение помечает как перепройден.
+    client.post("/quiz/submit", json={"answers": {"M": 2, "S": 2, "Mg": 2}},
+                headers=_auth(token))
+    assert _row()["quiz_retaken"] is True
+
+    # Ответы: попытки посчитаны, версия актуальная.
+    uid = _row()["id"]
+    q = client.get(f"/admin/users/{uid}/quiz", headers=_auth(admin)).json()
+    assert q["attempts"] == 2 and q["quiz_version"] >= 2
+
+    # Устаревшая версия — правим строку напрямую.
+    import app.database as database
+    from sqlmodel import Session, select
+    from app.models import QuizResult
+    with Session(database.engine) as s:
+        qr = s.exec(select(QuizResult).where(QuizResult.user_id == uid)).first()
+        qr.quiz_version = 1
+        s.add(qr)
+        s.commit()
+    assert _row()["quiz_outdated"] is True
+
+
 def test_admin_users_export_xlsx(client):
     admin = _login(client, ADMIN_EMAIL, ADMIN_PASSWORD)
     r = client.get("/admin/users/export", headers=_auth(admin))

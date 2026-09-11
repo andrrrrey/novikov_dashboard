@@ -186,6 +186,7 @@ def submit_quiz(
             setattr(existing, key, value)
         existing.answers_json = json.dumps(payload.answers)
         existing.quiz_version = QUIZ_VERSION
+        existing.attempts = (existing.attempts or 1) + 1
         existing.taken_at = datetime.now(timezone.utc)
     else:
         session.add(QuizResult(
@@ -460,7 +461,10 @@ def _user_out(
     p = profile
     return UserOut(
         id=user.id, email=user.email, role=user.role, created_at=user.created_at,
-        quiz_taken=quiz is not None, influence=influence,
+        quiz_taken=quiz is not None,
+        quiz_outdated=quiz is not None and quiz.quiz_version < QUIZ_VERSION,
+        quiz_retaken=quiz is not None and (quiz.attempts or 1) > 1,
+        influence=influence,
         bottleneck_aspect=quiz.bottleneck_aspect if quiz else None,
         bottleneck_level=quiz.bottleneck_level if quiz else None,
         business_level=biz_level if quiz else None,
@@ -482,9 +486,19 @@ def _user_out(
 # Заголовки и порядок колонок выгрузки резидентов в Excel.
 _EXPORT_COLUMNS = [
     "Email", "Фамилия", "Имя", "Бизнес", "Сфера", "Дата рождения", "Телеграм",
-    "Роль", "Тест пройден", "Узкое место", "Уровень бизнеса",
+    "Роль", "Тест пройден", "Прохождение", "Узкое место", "Уровень бизнеса",
     "Маркетинг", "Продажи", "Менеджмент", "Влияние", "Дата регистрации",
 ]
+
+
+def _quiz_pass_label(quiz) -> str:
+    """Человекочитаемый статус прохождения для выгрузки/админки."""
+    if quiz is None:
+        return "—"
+    if quiz.quiz_version < QUIZ_VERSION:
+        return "старая версия"
+    attempts = quiz.attempts or 1
+    return f"перепройдено ({attempts})" if attempts > 1 else "первое"
 
 
 @app.get("/admin/users/export")
@@ -528,6 +542,7 @@ def export_users(_: User = Depends(require_admin), session: Session = Depends(ge
             (p.telegram or "") if p else "",
             "админ" if u.role == "admin" else "резидент",
             "да" if q else "нет",
+            _quiz_pass_label(q),
             bottleneck,
             biz if biz is not None else "",
             q.marketing_level if q else "",
@@ -672,6 +687,7 @@ def user_quiz(
 
     return UserQuizOut(
         user_id=user.id, email=user.email, taken_at=result.taken_at,
+        quiz_version=result.quiz_version, attempts=result.attempts,
         marketing_level=result.marketing_level, sales_level=result.sales_level,
         management_level=result.management_level,
         bottleneck_aspect=result.bottleneck_aspect,
