@@ -682,9 +682,13 @@ function UserRow({ user, onReload, onError, onResetPassword, onRemove }) {
             {fullName || <span className="muted">— без анкеты</span>}
             {isAdmin
               ? <em className="tag tag-wait admin-user-role">админ</em>
-              : (user.quiz_taken
-                  ? <em className="tag tag-ok admin-user-role">тест пройден</em>
-                  : <em className="tag tag-wait admin-user-role">тест ожидает</em>)}
+              : (!user.quiz_taken
+                  ? <em className="tag tag-wait admin-user-role">тест ожидает</em>
+                  : user.quiz_outdated
+                    ? <em className="tag tag-wait admin-user-role">старая версия</em>
+                    : user.quiz_retaken
+                      ? <em className="tag tag-ok admin-user-role">перепройден</em>
+                      : <em className="tag tag-ok admin-user-role">тест пройден</em>)}
           </div>
           <div className="admin-user-email">{user.email}</div>
           {(user.business_name || user.business_field) && (
@@ -776,11 +780,15 @@ function QuizAnswers({ user, onError }) {
   if (!data) return null;
 
   const taken = data.taken_at ? new Date(data.taken_at).toLocaleString("ru-RU") : "—";
+  const passLabel = (data.attempts || 1) > 1
+    ? `перепройдено ${data.attempts} раз(а)`
+    : "первое прохождение";
+  const versionLabel = user.quiz_outdated ? "старые вопросы" : "актуальные вопросы";
   return (
     <div className="admin-user-quiz">
       <div className="admin-user-quiz-head">
         <span>Ответы на опросник</span>
-        <span className="muted">Пройден: {taken}</span>
+        <span className="muted">Пройден: {taken} · {passLabel} · {versionLabel}</span>
       </div>
       <div className="admin-user-quiz-levels">
         <span>Маркетинг: <b>{data.marketing_level}</b></span>

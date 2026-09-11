@@ -108,6 +108,10 @@ class UserOut(BaseModel):
     role: str
     created_at: datetime
     quiz_taken: bool = False
+    # Тест пройден по устаревшей версии опросника (ждёт перепрохождения).
+    quiz_outdated: bool = False
+    # Тест перепройден (attempts > 1) — второе и последующие прохождения.
+    quiz_retaken: bool = False
     influence: int = 0
     # Результат теста: узкое место и текущий уровень резидента (None — тест не пройден).
     bottleneck_aspect: Optional[str] = None
@@ -235,6 +239,8 @@ class UserQuizOut(BaseModel):
     user_id: int
     email: str
     taken_at: datetime
+    quiz_version: int = 1
+    attempts: int = 1
     marketing_level: int
     sales_level: int
     management_level: int
