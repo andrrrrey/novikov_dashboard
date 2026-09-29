@@ -19,6 +19,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session, select
 
+import app.config as config
 from app.config import (
     DEMO_EMAIL, GETCOURSE_POLL_HOURS_DEFAULT, GETCOURSE_SYNC_ENABLED, UPLOAD_DIR,
 )
@@ -38,16 +39,18 @@ from app.schemas import (
     ExperienceOut, GcGroupOut, GcGroupUpdate, GetCourseOut, GetCourseUpdate, HintOut,
     HintUpdate, InfoTipsOut, InfoTipsUpdate, KnowledgeOut, ProfileOut, ProfileUpdate,
     ProgressConfigOut, ProgressConfigUpdate, PromoOut, PromoUpdate, QuizAnswerOut,
-    QuizOption, QuizQuestionOut, QuizSubmit, ResidentOut, SyncOut, TokenResponse,
+    QuizOption, QuizQuestionOut, QuizSubmit, ResidentLinkOut, ResidentOut, SyncOut, TokenResponse,
     UploadOut, UserCreate, UserOut, UserQuizOut, UserRegister, UserUpdate,
 )
 from app.scoring import evaluate, Aspect, ASPECT_LABELS
 from app.security import (
     create_access_token, get_current_user, hash_password,
-    require_admin, verify_password,
+    require_admin, require_api_key, verify_password,
 )
+from app.schemas import _normalize_telegram
 from app.seed import seed
 from app.settings import get_setting, set_setting
+from app.slug import resident_slug, to_latin
 
 # Разрешённые типы обложек и лимит размера загрузки.
 ALLOWED_IMAGE_TYPES = {
@@ -397,6 +400,26 @@ async def upload_my_photo(
 
 
 # ------------------------------------------------ Резиденты (похожие по уровню)
+def _resident_out(u: User, profile: UserProfile, level: int) -> ResidentOut:
+    return ResidentOut(
+        id=u.id, first_name=profile.first_name, last_name=profile.last_name,
+        business_name=profile.business_name, business_field=profile.business_field,
+        photo_url=profile.photo_url, photo_pos=profile.photo_pos or "50% 50%",
+        photo_zoom=profile.photo_zoom or 1.0,
+        business_level=level, telegram=profile.telegram or "",
+    )
+
+
+def _resident_profiles(session: Session):
+    """(user, profile) всех резидентов с заполненной анкетой (без демо), по id."""
+    profiles = {p.user_id: p for p in session.exec(select(UserProfile)).all()}
+    for u in session.exec(select(User).where(User.role == "user").order_by(User.id)).all():
+        profile = profiles.get(u.id)
+        if u.email == DEMO_EMAIL or profile is None or not profile.completed:
+            continue
+        yield u, profile
+
+
 @app.get("/me/residents", response_model=list[ResidentOut])
 def list_residents(
     q: str = "",
@@ -433,19 +456,57 @@ def list_residents(
             continue
         if field_norm and field_norm != profile.business_field.strip().lower():
             continue
-        out.append(ResidentOut(
-            id=u.id, first_name=profile.first_name, last_name=profile.last_name,
-            business_name=profile.business_name, business_field=profile.business_field,
-            photo_url=profile.photo_url, photo_pos=profile.photo_pos or "50% 50%",
-            photo_zoom=profile.photo_zoom or 1.0,
-            business_level=level, telegram=profile.telegram or "",
-        ))
+        out.append(_resident_out(u, profile, level))
     # «Все» — по уровню (сильные сверху), затем по имени; «рядом» — по имени.
     if all_scope:
         out.sort(key=lambda r: (-r.business_level, r.last_name, r.first_name))
     else:
         out.sort(key=lambda r: (r.last_name, r.first_name))
     return out
+
+
+@app.get("/me/residents/by-slug/{slug}", response_model=ResidentOut)
+def get_resident_by_slug(
+    slug: str,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Резидент по слагу «имя-фамилия» — для прямых ссылок /residents/<slug>.
+    При совпадении ФИО у нескольких резидентов берём первого по id."""
+    slug = (slug or "").strip().lower()
+    if user.email == DEMO_EMAIL:
+        for r in demo_residents(scope="all"):
+            if resident_slug(r.first_name, r.last_name) == slug:
+                return r
+        raise HTTPException(status_code=404, detail="Резидент не найден")
+
+    exp_map = exp_assignments(session)
+    for u, profile in _resident_profiles(session):
+        if resident_slug(profile.first_name, profile.last_name) == slug:
+            return _resident_out(u, profile, business_level(session, u, exp_map))
+    raise HTTPException(status_code=404, detail="Резидент не найден")
+
+
+# ------------------------------------------------ Внешний API (по X-API-Key)
+@app.get("/external/residents/by-telegram/{username:path}", response_model=ResidentLinkOut,
+         dependencies=[Depends(require_api_key)])
+def resident_by_telegram(username: str, session: Session = Depends(get_session)):
+    """Имя резидента латиницей и ссылка на профиль по его телеграм-нику
+    (принимает «ник», «@ник» или «t.me/ник», регистр не важен)."""
+    nick = (_normalize_telegram(username) or "").lower()
+    if nick:
+        for _, profile in _resident_profiles(session):
+            if (profile.telegram or "").strip().lower() == nick:
+                slug = resident_slug(profile.first_name, profile.last_name)
+                first_en, last_en = to_latin(profile.first_name), to_latin(profile.last_name)
+                return ResidentLinkOut(
+                    telegram=profile.telegram,
+                    first_name=profile.first_name, last_name=profile.last_name,
+                    first_name_en=first_en, last_name_en=last_en,
+                    full_name_en=f"{first_en} {last_en}".strip(),
+                    slug=slug, url=f"{config.PUBLIC_APP_URL}/residents/{slug}",
+                )
+    raise HTTPException(status_code=404, detail="Резидент с таким телеграмом не найден")
 
 
 # ------------------------------------------------------------------- Админка

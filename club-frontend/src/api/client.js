@@ -132,6 +132,8 @@ export const api = {
     const qs = params.toString();
     return request(`/me/residents${qs ? `?${qs}` : ""}`);
   },
+  // Один резидент по слагу «имя-фамилия» — для прямых ссылок /residents/<slug>
+  residentBySlug: (slug) => request(`/me/residents/by-slug/${encodeURIComponent(slug)}`),
 
   listUsers: () => request("/admin/users"),
   // Выгрузка резидентов в Excel. Общий request() парсит JSON — для бинарного

@@ -207,6 +207,18 @@ class ResidentOut(BaseModel):
     telegram: str = ""
 
 
+class ResidentLinkOut(BaseModel):
+    """Ответ внешнего API: имя резидента латиницей и ссылка на его профиль."""
+    telegram: str
+    first_name: str
+    last_name: str
+    first_name_en: str
+    last_name_en: str
+    full_name_en: str
+    slug: str
+    url: str
+
+
 # --- Квиз ---
 class QuizOption(BaseModel):
     index: int   # порядковый номер варианта (1-based) — его и отправляет фронт

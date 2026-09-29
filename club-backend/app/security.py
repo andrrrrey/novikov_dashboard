@@ -1,14 +1,16 @@
 """Пароли, JWT-токены и зависимости авторизации FastAPI."""
 
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 from sqlmodel import Session, select
 
+import app.config as config
 from app.config import ACCESS_TOKEN_TTL_MINUTES, ALGORITHM, SECRET_KEY
 from app.database import get_session
 from app.models import User
@@ -63,3 +65,18 @@ def require_admin(user: User = Depends(get_current_user)) -> User:
             detail="Доступ только для администратора",
         )
     return user
+
+
+def require_api_key(x_api_key: str = Header(default="")) -> None:
+    """Доступ внешних систем по ключу в заголовке X-API-Key (EXTERNAL_API_KEY)."""
+    expected = config.EXTERNAL_API_KEY
+    if not expected:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Внешний API отключён (не задан EXTERNAL_API_KEY)",
+        )
+    if not secrets.compare_digest(x_api_key.encode(), expected.encode()):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Неверный API-ключ",
+        )
