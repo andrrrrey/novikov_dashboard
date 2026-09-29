@@ -40,11 +40,11 @@
 В сервисе задай EXTERNAL_API_KEY (любой длинный секрет; пусто — API выключен) и, если адрес
 другой, PUBLIC_APP_URL (по умолчанию https://club-app.ru/club). Запрос:
 
-   curl -H "X-API-Key: <ключ>" https://club-app.ru/club/api/external/residents/by-telegram/ivan_garant
+   curl -H "X-API-Key: <ключ>" https://club-app.ru/club/api/external/residents/by-telegram/marchevsky_ivan
 
 Ник можно передать как «ник», «@ник» или «t.me/ник». Ответ (404 — не найден, 401 — неверный ключ):
 
-   {"telegram": "ivan_garant", "first_name": "Иван", "last_name": "Марчевский",
+   {"telegram": "marchevsky_ivan", "first_name": "Иван", "last_name": "Марчевский",
     "first_name_en": "Ivan", "last_name_en": "Marchevskii", "full_name_en": "Ivan Marchevskii",
     "slug": "ivan-marchevskii", "url": "https://club-app.ru/club/residents/ivan-marchevskii"}
 
