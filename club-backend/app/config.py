@@ -26,3 +26,8 @@ DEMO_PASSWORD = os.getenv("DEMO_PASSWORD", "demo12345")
 # и дефолтный период опроса, если он не задан в настройках.
 GETCOURSE_SYNC_ENABLED = os.getenv("GETCOURSE_SYNC_ENABLED", "1") not in ("0", "false", "False", "")
 GETCOURSE_POLL_HOURS_DEFAULT = float(os.getenv("GETCOURSE_POLL_HOURS", "2"))
+
+# Внешний API (например, бот): ключ для заголовка X-API-Key. Пусто — API выключен.
+EXTERNAL_API_KEY = os.getenv("EXTERNAL_API_KEY", "")
+# Публичный адрес фронта — из него собираются ссылки на профили резидентов.
+PUBLIC_APP_URL = os.getenv("PUBLIC_APP_URL", "https://club-app.ru/club").rstrip("/")

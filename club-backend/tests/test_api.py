@@ -512,3 +512,64 @@ def test_admin_upload_cover(client):
                     files={"file": ("c.txt", b"hello", "text/plain")},
                     headers=_auth(admin))
     assert r.status_code == 400
+
+
+def test_slugify_matches_frontend():
+    from app.slug import resident_slug, slugify, to_latin
+    assert resident_slug("Иван", "Марчевский") == "ivan-marchevskii"
+    assert slugify("Мария  Волкова!") == "mariya-volkova"
+    assert slugify("  ") == "resident"
+    assert to_latin("Анна-Мария") == "Anna Mariya"
+
+
+def test_external_resident_by_telegram(client, monkeypatch):
+    import app.config as config
+    admin = _login(client, ADMIN_EMAIL, ADMIN_PASSWORD)
+    client.post("/admin/users", json={"email": "ext@club.ru", "password": "pass12345"},
+                headers=_auth(admin))
+    token = _login(client, "ext@club.ru", "pass12345")
+    r = client.put("/me/profile",
+                   json={"first_name": "Иван", "last_name": "Марчевский",
+                         "business_name": "ООО Ромашка", "business_field": "Услуги",
+                         "birth_date": "1990-01-01", "photo_url": "/uploads/x.jpg",
+                         "telegram": "@Marchevsky_Ivan"},
+                   headers=_auth(token))
+    assert r.status_code == 200, r.text
+    url = "/external/residents/by-telegram/marchevsky_ivan"
+
+    monkeypatch.setattr(config, "EXTERNAL_API_KEY", "")
+    assert client.get(url, headers={"X-API-Key": "x"}).status_code == 503
+
+    monkeypatch.setattr(config, "EXTERNAL_API_KEY", "secret-key")
+    assert client.get(url).status_code == 401
+    assert client.get(url, headers={"X-API-Key": "wrong"}).status_code == 401
+
+    key = {"X-API-Key": "secret-key"}
+    r = client.get(url, headers=key)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["first_name_en"] == "Ivan" and body["last_name_en"] == "Marchevskii"
+    assert body["full_name_en"] == "Ivan Marchevskii"
+    assert body["slug"] == "ivan-marchevskii"
+    assert body["url"] == f"{config.PUBLIC_APP_URL}/residents/ivan-marchevskii"
+    # @ник, ссылка t.me и другой регистр тоже находят
+    for variant in ("@MARCHEVSKY_IVAN", "t.me/marchevsky_ivan", "https://t.me/Marchevsky_Ivan"):
+        assert client.get(f"/external/residents/by-telegram/{variant}",
+                          headers=key).json()["slug"] == "ivan-marchevskii"
+    assert client.get("/external/residents/by-telegram/nobody_here",
+                      headers=key).status_code == 404
+
+    # по слагу профиль открывается у другого резидента; неизвестный слаг — 404
+    r = client.get("/me/residents/by-slug/ivan-marchevskii", headers=_auth(admin))
+    assert r.status_code == 200 and r.json()["telegram"] == "Marchevsky_Ivan"
+    assert client.get("/me/residents/by-slug/no-such", headers=_auth(admin)).status_code == 404
+    assert client.get("/me/residents/by-slug/ivan-marchevskii").status_code == 401
+
+
+def test_demo_resident_by_slug(client):
+    from app.slug import resident_slug
+    demo = _login(client, DEMO_EMAIL, DEMO_PASSWORD)
+    first = client.get("/me/residents", params={"scope": "all"}, headers=_auth(demo)).json()[0]
+    slug = resident_slug(first["first_name"], first["last_name"])
+    r = client.get(f"/me/residents/by-slug/{slug}", headers=_auth(demo))
+    assert r.status_code == 200 and r.json()["id"] == first["id"]

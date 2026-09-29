@@ -1,18 +1,42 @@
-import { useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { api } from "../api/client.js";
 import { initials } from "../components/Avatar.jsx";
 import PwaShell from "../components/PwaShell.jsx";
 import { BackIcon, TelegramIcon } from "../components/PwaIcons.jsx";
 
 // Профиль резидента в дизайне PWA (макет Figma): открывается тапом по резиденту
-// на /residents по адресу /residents/имя-фамилия. Данные приходят через
-// router-state из списка (отдельного эндпоинта на одного резидента нет), поэтому
-// показываем то, что есть: имя, бизнес, сфера практики, общий уровень и телеграм.
+// на /residents по адресу /residents/имя-фамилия. Из списка данные приходят через
+// router-state; при прямом заходе по ссылке грузим резидента по слагу.
+// Показываем имя, бизнес, сферу практики, общий уровень и телеграм.
 export default function ResidentProfile() {
   const navigate = useNavigate();
   const { state } = useLocation();
-  const r = state?.resident;
+  const { slug } = useParams();
+  const [loaded, setLoaded] = useState(null);
+  const [failed, setFailed] = useState(false);
+  const r = state?.resident || loaded;
 
-  // Прямой заход по ссылке без данных — возвращаем к списку.
+  useEffect(() => {
+    if (state?.resident || !slug) return;
+    let alive = true;
+    setLoaded(null);
+    setFailed(false);
+    api.residentBySlug(slug)
+      .then((data) => { if (alive) setLoaded(data); })
+      .catch(() => { if (alive) setFailed(true); });
+    return () => { alive = false; };
+  }, [slug, state]);
+
+  if (!r && !failed) {
+    return (
+      <PwaShell cta={null} hero={false} dashHref="/" resHref="/residents">
+        <div className="pwa-state">Загрузка…</div>
+      </PwaShell>
+    );
+  }
+
+  // Резидент не найден — возвращаем к списку.
   if (!r) {
     return (
       <PwaShell cta={null} hero={false} dashHref="/" resHref="/residents">
@@ -21,7 +45,7 @@ export default function ResidentProfile() {
             <BackIcon size={20} /> Назад
           </button>
         </div>
-        <div className="pwa-state">Профиль недоступен. Откройте резидента из списка.</div>
+        <div className="pwa-state">Резидент не найден. Откройте резидента из списка.</div>
       </PwaShell>
     );
   }
