@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.jsx";
+import { returnPath } from "../auth/returnTo.js";
 import AuroraCanvas from "../components/AuroraCanvas.jsx";
 import logoUrl from "../assets/logo.svg";
 import "../styles/pwa.css";
@@ -11,6 +12,7 @@ import "../styles/pwa.css";
 export default function Register() {
   const { register } = useAuth();
   const navigate = useNavigate();
+  const { state } = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -31,7 +33,7 @@ export default function Register() {
     setBusy(true);
     try {
       await register(email.trim(), password);
-      navigate("/", { replace: true });
+      navigate(returnPath(state) || "/", { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -68,7 +70,7 @@ export default function Register() {
             </button>
 
             <button type="button" className="pwa-btn-ghost-line"
-                    onClick={() => navigate("/login")} disabled={busy}>
+                    onClick={() => navigate("/login", { state })} disabled={busy}>
               Уже есть аккаунт? Войти
             </button>
           </form>

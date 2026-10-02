@@ -1,15 +1,13 @@
-// Тонкий клиент над fetch. Токен храним в localStorage, кладём в Authorization.
+// Тонкий клиент над fetch. Токен авторизации живёт в HttpOnly-cookie: его ставит
+// и сбрасывает сервер, JS его не видит, браузер сам отправляет его с запросами.
 
 const BASE = import.meta.env.VITE_API_BASE || "/club/api";
-const TOKEN_KEY = "club_token";
 
-export function getToken() {
-  return localStorage.getItem(TOKEN_KEY);
-}
-export function setToken(token) {
-  if (token) localStorage.setItem(TOKEN_KEY, token);
-  else localStorage.removeItem(TOKEN_KEY);
-}
+// Раньше токен лежал в localStorage — убираем остатки старой схемы.
+try { localStorage.removeItem("club_token"); } catch { /* storage недоступен */ }
+
+// Сессия кончилась (401) — сообщаем AuthContext, он разлогинит и уведёт на вход.
+export const UNAUTHORIZED_EVENT = "club:unauthorized";
 
 // Понятные названия полей анкеты — чтобы ошибки валидации (422) читались
 // человеком, а не как "body -> birth_date".
@@ -61,7 +59,7 @@ function messageFromStatus(status) {
 
 async function request(path, { method = "GET", body, form, formData, auth = true } = {}) {
   const headers = {};
-  const opts = { method, headers };
+  const opts = { method, headers, credentials: "same-origin" };
 
   if (formData) {
     // multipart: Content-Type c boundary проставит браузер сам
@@ -74,11 +72,6 @@ async function request(path, { method = "GET", body, form, formData, auth = true
     headers["Content-Type"] = "application/json";
   }
 
-  if (auth) {
-    const token = getToken();
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-  }
-
   let res;
   try {
     res = await fetch(`${BASE}${path}`, opts);
@@ -89,6 +82,7 @@ async function request(path, { method = "GET", body, form, formData, auth = true
   if (res.status === 204) return null;
 
   const data = await res.json().catch(() => ({}));
+  if (res.status === 401 && auth) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
   if (!res.ok) {
     const detail = data?.detail;
     let message = "";
@@ -109,6 +103,10 @@ export const api = {
 
   register: (email, password) =>
     request("/auth/register", { method: "POST", body: { email, password }, auth: false }),
+
+  // Текущая сессия по cookie (auth: false — 401 тут штатный ответ «не вошёл»)
+  me: () => request("/auth/me", { auth: false }),
+  logout: () => request("/auth/logout", { method: "POST", auth: false }),
 
   getQuiz: () => request("/quiz"),
   submitQuiz: (answers) => request("/quiz/submit", { method: "POST", body: { answers } }),
@@ -137,14 +135,11 @@ export const api = {
 
   listUsers: () => request("/admin/users"),
   // Выгрузка резидентов в Excel. Общий request() парсит JSON — для бинарного
-  // файла качаем сырым fetch с токеном и кликаем временную ссылку.
+  // файла качаем сырым fetch (cookie уходит сама) и кликаем временную ссылку.
   exportUsers: async () => {
-    const token = getToken();
     let res;
     try {
-      res = await fetch(`${BASE}/admin/users/export`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      res = await fetch(`${BASE}/admin/users/export`, { credentials: "same-origin" });
     } catch {
       throw new Error("Нет связи с сервером. Проверьте интернет-соединение и попробуйте ещё раз.");
     }

@@ -48,7 +48,21 @@
     "first_name_en": "Ivan", "last_name_en": "Marchevskii", "full_name_en": "Ivan Marchevskii",
     "slug": "ivan-marchevskii", "url": "https://club-app.ru/club/residents/ivan-marchevskii"}
 
-Ссылка url открывает профиль резидента напрямую (нужен вход в личный кабинет).
+Ссылка url открывает профиль резидента напрямую; если резидент не вошёл, после входа
+его вернёт на этот профиль. У тёзок ссылки различаются суффиксом: ivan-marchevskii,
+ivan-marchevskii-2 (ссылка закреплена за человеком и меняется только при смене имени).
+
+## Безопасность: HTTPS и сессия в cookie
+- Сайт должен открываться только по https://club-app.ru. В deploy/nginx-club.conf — редирект
+  HTTP→HTTPS и заголовок HSTS. Если на сервере конфиг уже правил certbot, сверь (sudo nginx -T)
+  и перенеси редирект и add_header, не затирая пути к сертификатам; затем sudo nginx -t && sudo systemctl reload nginx.
+- Токен входа хранится в HttpOnly-cookie (JS к нему доступа не имеет), а не в localStorage.
+  Cookie помечена Secure — уходит только по HTTPS. Для локальной разработки по http:
+  COOKIE_SECURE=0. После первой выкладки этой версии всем резидентам нужно войти заново (один раз).
+- CORS по умолчанию выключен (фронт и API на одном домене). Если API нужен с другого домена —
+  Environment="CORS_ORIGINS=https://other.example" в сервисе.
+- Пароль в DevTools браузера виден в теле запроса всегда — это нормально: шифруется канал (TLS),
+  а не сам запрос. Снаружи по сети при HTTPS он не виден.
 
 ## Обновление кода потом
 Из корня репозитория:  bash deploy.sh
@@ -61,5 +75,4 @@
 - Ошибка на логине → проверить, что фронт собран после правок (base /club/, API /club/api).
 
 ## На будущее
-- HTTP по IP. Для боевого — домен + Let's Encrypt.
 - База SQLite в club-backend/club.db. Бэкапить перед обновлениями.

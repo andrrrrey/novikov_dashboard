@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.jsx";
+import { returnPath } from "../auth/returnTo.js";
 import AuroraCanvas from "../components/AuroraCanvas.jsx";
 import logoUrl from "../assets/logo.svg";
 import "../styles/pwa.css";
@@ -11,6 +12,7 @@ import "../styles/pwa.css";
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const { state } = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -22,7 +24,7 @@ export default function Login() {
     setBusy(true);
     try {
       const role = await login(email.trim(), password);
-      navigate(role === "admin" ? "/admin" : "/", { replace: true });
+      navigate(returnPath(state) || (role === "admin" ? "/admin" : "/"), { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -55,7 +57,7 @@ export default function Login() {
             </button>
 
             <button type="button" className="pwa-btn-ghost-line"
-                    onClick={() => navigate("/register")} disabled={busy}>
+                    onClick={() => navigate("/register", { state })} disabled={busy}>
               Создать аккаунт
             </button>
           </form>

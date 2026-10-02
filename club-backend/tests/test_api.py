@@ -573,3 +573,75 @@ def test_demo_resident_by_slug(client):
     slug = resident_slug(first["first_name"], first["last_name"])
     r = client.get(f"/me/residents/by-slug/{slug}", headers=_auth(demo))
     assert r.status_code == 200 and r.json()["id"] == first["id"]
+
+
+def test_auth_cookie_session(client):
+    from fastapi.testclient import TestClient
+    from app.main import app
+    browser = TestClient(app)   # отдельный клиент, который хранит cookie как браузер
+    r = browser.post("/auth/login", data={"username": DEMO_EMAIL, "password": DEMO_PASSWORD})
+    assert r.status_code == 200
+    set_cookie = r.headers["set-cookie"].lower()
+    assert "club_token=" in set_cookie and "httponly" in set_cookie and "samesite=strict" in set_cookie
+    r = browser.get("/auth/me")   # без заголовка Authorization — по cookie
+    assert r.status_code == 200 and r.json() == {"email": DEMO_EMAIL, "role": "user"}
+    assert browser.post("/auth/logout").status_code == 204
+    assert browser.get("/auth/me").status_code == 401
+
+
+def _make_resident(client, admin, email, first, last, telegram=""):
+    client.post("/admin/users", json={"email": email, "password": "pass12345"},
+                headers=_auth(admin))
+    token = _login(client, email, "pass12345")
+    body = {"first_name": first, "last_name": last, "business_name": "ООО", "business_field": "Услуги",
+            "birth_date": "1990-01-01", "photo_url": "/uploads/x.jpg", "telegram": telegram}
+    r = client.put("/me/profile", json=body, headers=_auth(token))
+    assert r.status_code == 200, r.text
+    return token, body
+
+
+def test_namesakes_get_unique_slugs(client, monkeypatch):
+    import app.config as config
+    monkeypatch.setattr(config, "EXTERNAL_API_KEY", "k")
+    admin = _login(client, ADMIN_EMAIL, ADMIN_PASSWORD)
+    t1, b1 = _make_resident(client, admin, "tezka1@club.ru", "Пётр", "Тёзкин", "tezka_one")
+    t2, b2 = _make_resident(client, admin, "tezka2@club.ru", "Пётр", "Тёзкин", "tezka_two")
+
+    def by_tg(nick):
+        return client.get(f"/external/residents/by-telegram/{nick}", headers={"X-API-Key": "k"}).json()
+
+    assert by_tg("tezka_one")["slug"] == "petr-tezkin"
+    assert by_tg("tezka_two")["slug"] == "petr-tezkin-2"
+    assert by_tg("tezka_two")["url"].endswith("/residents/petr-tezkin-2")
+    r = client.get("/me/residents/by-slug/petr-tezkin-2", headers=_auth(admin))
+    assert r.status_code == 200 and r.json()["telegram"] == "tezka_two"
+    allr = client.get("/me/residents", params={"scope": "all"}, headers=_auth(t1)).json()
+    assert {x["slug"] for x in allr if x["telegram"] == "tezka_two"} == {"petr-tezkin-2"}
+
+    # повторное сохранение без смены имени слаг не меняет
+    client.put("/me/profile", json=b2, headers=_auth(t2))
+    assert by_tg("tezka_two")["slug"] == "petr-tezkin-2"
+    # смена фамилии — новый слаг, старый освобождается
+    client.put("/me/profile", json={**b2, "last_name": "Другой"}, headers=_auth(t2))
+    assert by_tg("tezka_two")["slug"] == "petr-drugoi"
+    assert client.get("/me/residents/by-slug/petr-tezkin-2", headers=_auth(admin)).status_code == 404
+
+
+def test_backfill_slugs_in_registration_order():
+    from sqlmodel import Session, select
+    from app.database import engine
+    from app.models import User, UserProfile
+    from app.slug import backfill_slugs
+    with Session(engine) as s:
+        ids = []
+        for i in range(2):
+            u = User(email=f"bf{i}@club.ru", password_hash="x")
+            s.add(u)
+            s.commit()
+            s.refresh(u)
+            s.add(UserProfile(user_id=u.id, first_name="Олег", last_name="Бэкфилов", completed=True))
+            ids.append(u.id)
+        s.commit()
+        backfill_slugs(s)
+        slugs = [s.get(UserProfile, i).slug for i in ids]
+    assert slugs == ["oleg-bekfilov", "oleg-bekfilov-2"]
