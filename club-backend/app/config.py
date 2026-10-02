@@ -31,3 +31,10 @@ GETCOURSE_POLL_HOURS_DEFAULT = float(os.getenv("GETCOURSE_POLL_HOURS", "2"))
 EXTERNAL_API_KEY = os.getenv("EXTERNAL_API_KEY", "")
 # Публичный адрес фронта — из него собираются ссылки на профили резидентов.
 PUBLIC_APP_URL = os.getenv("PUBLIC_APP_URL", "https://club-app.ru/club").rstrip("/")
+
+# Токен авторизации живёт в HttpOnly-cookie (JS его не видит). Secure — только по HTTPS;
+# для локальной разработки по http выставить COOKIE_SECURE=0.
+AUTH_COOKIE_NAME = "club_token"
+COOKIE_SECURE = os.getenv("COOKIE_SECURE", "1") not in ("0", "false", "False", "")
+# Разрешённые origin'ы для CORS через запятую. Пусто — CORS выключен (фронт и API на одном домене).
+CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]

@@ -11,6 +11,7 @@ from app.schemas import (
     ProfileOut, ResidentOut,
 )
 from app.settings import DEFAULTS
+from app.slug import resident_slug
 
 
 def _avatar(initials: str, color: str) -> str:
@@ -137,7 +138,7 @@ def demo_residents(q: str = "", field: str = "", scope: str = "near") -> list[Re
             continue
         if field and field != r["business_field"].lower():
             continue
-        out.append(ResidentOut(**r))
+        out.append(ResidentOut(**r, slug=resident_slug(r["first_name"], r["last_name"])))
     if all_scope:
         out.sort(key=lambda r: (-r.business_level, r.last_name, r.first_name))
     else:

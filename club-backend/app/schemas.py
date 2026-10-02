@@ -49,6 +49,11 @@ class TokenResponse(BaseModel):
     role: str
 
 
+class MeOut(BaseModel):
+    email: str
+    role: str
+
+
 # --- Публичная регистрация ---
 class UserRegister(BaseModel):
     email: EmailStr
@@ -205,6 +210,7 @@ class ResidentOut(BaseModel):
     photo_zoom: float = 1.0
     business_level: int = 0
     telegram: str = ""
+    slug: str = ""
 
 
 class ResidentLinkOut(BaseModel):

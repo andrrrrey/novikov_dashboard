@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from io import BytesIO
 from typing import Optional
 
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, UploadFile, status
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Response, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.security import OAuth2PasswordRequestForm
@@ -37,20 +37,20 @@ from app.quiz_data import QUIZ, QUIZ_VERSION, answers_to_levels
 from app.schemas import (
     AdminStats, CardAdminOut, CardOut, CardUpdate, CategoryProgress, DashboardOut,
     ExperienceOut, GcGroupOut, GcGroupUpdate, GetCourseOut, GetCourseUpdate, HintOut,
-    HintUpdate, InfoTipsOut, InfoTipsUpdate, KnowledgeOut, ProfileOut, ProfileUpdate,
+    HintUpdate, InfoTipsOut, InfoTipsUpdate, KnowledgeOut, MeOut, ProfileOut, ProfileUpdate,
     ProgressConfigOut, ProgressConfigUpdate, PromoOut, PromoUpdate, QuizAnswerOut,
     QuizOption, QuizQuestionOut, QuizSubmit, ResidentLinkOut, ResidentOut, SyncOut, TokenResponse,
     UploadOut, UserCreate, UserOut, UserQuizOut, UserRegister, UserUpdate,
 )
 from app.scoring import evaluate, Aspect, ASPECT_LABELS
 from app.security import (
-    create_access_token, get_current_user, hash_password,
-    require_admin, require_api_key, verify_password,
+    clear_auth_cookie, create_access_token, get_current_user, hash_password,
+    require_admin, require_api_key, set_auth_cookie, verify_password,
 )
 from app.schemas import _normalize_telegram
 from app.seed import seed
 from app.settings import get_setting, set_setting
-from app.slug import resident_slug, to_latin
+from app.slug import assign_slug, backfill_slugs, resident_slug, to_latin
 
 # Разрешённые типы обложек и лимит размера загрузки.
 ALLOWED_IMAGE_TYPES = {
@@ -90,6 +90,8 @@ async def _save_image_upload(file: UploadFile) -> str:
 async def lifespan(_: FastAPI):
     init_db()
     seed()
+    with session_factory() as s:
+        backfill_slugs(s)
     task = None
     if GETCOURSE_SYNC_ENABLED:
         # Фоновый опрос GetCourse. Один воркер uvicorn (в проде без --workers) → без дублей.
@@ -107,13 +109,15 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title="Клуб — личный кабинет резидента", lifespan=lifespan)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],          # в проде сузить до домена фронта
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Фронт и API на одном домене — CORS не нужен. Для других origin'ов: CORS_ORIGINS.
+if config.CORS_ORIGINS:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=config.CORS_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 # Загруженные обложки. Внешне доступно как /club/api/uploads/... через nginx.
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -121,8 +125,16 @@ app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 
 # ---------------------------------------------------------------- Авторизация
+def _issue_token(response: Response, user: User) -> TokenResponse:
+    """Токен — в HttpOnly-cookie для браузера и в теле ответа для API-клиентов."""
+    token = create_access_token(user)
+    set_auth_cookie(response, token)
+    return TokenResponse(access_token=token, role=user.role)
+
+
 @app.post("/auth/login", response_model=TokenResponse)
 def login(
+    response: Response,
     form: OAuth2PasswordRequestForm = Depends(),
     session: Session = Depends(get_session),
 ):
@@ -133,11 +145,12 @@ def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Неверный email или пароль",
         )
-    return TokenResponse(access_token=create_access_token(user), role=user.role)
+    return _issue_token(response, user)
 
 
 @app.post("/auth/register", response_model=TokenResponse, status_code=201)
 def register(
+    response: Response,
     payload: UserRegister,
     session: Session = Depends(get_session),
 ):
@@ -149,7 +162,17 @@ def register(
     session.add(user)
     session.commit()
     session.refresh(user)
-    return TokenResponse(access_token=create_access_token(user), role=user.role)
+    return _issue_token(response, user)
+
+
+@app.post("/auth/logout", status_code=204)
+def logout(response: Response):
+    clear_auth_cookie(response)
+
+
+@app.get("/auth/me", response_model=MeOut)
+def me(user: User = Depends(get_current_user)):
+    return MeOut(email=user.email, role=user.role)
 
 
 # ---------------------------------------------------------------------- Квиз
@@ -385,6 +408,7 @@ def save_profile(
     profile.photo_zoom = payload.photo_zoom or 1.0
     profile.telegram = payload.telegram or ""
     profile.completed = True
+    assign_slug(session, profile)
     session.add(profile)
     session.commit()
     session.refresh(profile)
@@ -407,6 +431,7 @@ def _resident_out(u: User, profile: UserProfile, level: int) -> ResidentOut:
         photo_url=profile.photo_url, photo_pos=profile.photo_pos or "50% 50%",
         photo_zoom=profile.photo_zoom or 1.0,
         business_level=level, telegram=profile.telegram or "",
+        slug=profile.slug or resident_slug(profile.first_name, profile.last_name),
     )
 
 
@@ -471,8 +496,8 @@ def get_resident_by_slug(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    """Резидент по слагу «имя-фамилия» — для прямых ссылок /residents/<slug>.
-    При совпадении ФИО у нескольких резидентов берём первого по id."""
+    """Резидент по слагу («имя-фамилия», у тёзок «имя-фамилия-2») — для прямых
+    ссылок /residents/<slug>."""
     slug = (slug or "").strip().lower()
     if user.email == DEMO_EMAIL:
         for r in demo_residents(scope="all"):
@@ -480,11 +505,13 @@ def get_resident_by_slug(
                 return r
         raise HTTPException(status_code=404, detail="Резидент не найден")
 
-    exp_map = exp_assignments(session)
-    for u, profile in _resident_profiles(session):
-        if resident_slug(profile.first_name, profile.last_name) == slug:
-            return _resident_out(u, profile, business_level(session, u, exp_map))
-    raise HTTPException(status_code=404, detail="Резидент не найден")
+    profile = session.exec(
+        select(UserProfile).where(UserProfile.slug == slug, UserProfile.completed == True)  # noqa: E712
+    ).first()
+    u = session.get(User, profile.user_id) if profile else None
+    if u is None or u.role != "user" or u.email == DEMO_EMAIL:
+        raise HTTPException(status_code=404, detail="Резидент не найден")
+    return _resident_out(u, profile, business_level(session, u, exp_assignments(session)))
 
 
 # ------------------------------------------------ Внешний API (по X-API-Key)
@@ -497,7 +524,7 @@ def resident_by_telegram(username: str, session: Session = Depends(get_session))
     if nick:
         for _, profile in _resident_profiles(session):
             if (profile.telegram or "").strip().lower() == nick:
-                slug = resident_slug(profile.first_name, profile.last_name)
+                slug = profile.slug or resident_slug(profile.first_name, profile.last_name)
                 first_en, last_en = to_latin(profile.first_name), to_latin(profile.last_name)
                 return ResidentLinkOut(
                     telegram=profile.telegram,
@@ -695,6 +722,8 @@ def update_user(
         for f in profile_fields:
             if f in data:
                 setattr(profile, f, data[f])
+        if profile.first_name or profile.last_name:
+            assign_slug(session, profile)
         session.add(profile)
 
     session.commit()

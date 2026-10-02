@@ -85,7 +85,7 @@ export default function Residents() {
                   <span className="pwa-rescard-lvl">Уровень {r.business_level}</span>
                 </div>
                 <button type="button" className="pwa-rescard-person"
-                        onClick={() => navigate(`/residents/${slugify(name)}`, { state: { resident: r } })}>
+                        onClick={() => navigate(`/residents/${r.slug || slugify(name)}`, { state: { resident: r } })}>
                   <div className="pwa-rescard-av">
                     {r.photo_url
                       ? <img src={r.photo_url} alt="" />

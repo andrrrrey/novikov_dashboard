@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import jwt
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 from sqlmodel import Session, select
@@ -18,7 +18,9 @@ from app.models import User
 # pbkdf2_sha256 — чистый python, без нативных зависимостей.
 # В проде можно перейти на bcrypt/argon2.
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+# Токен берём из Authorization: Bearer (скрипты, тесты), а если его нет — из
+# HttpOnly-cookie (браузер). auto_error=False — отсутствие заголовка решаем сами.
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
 
 def hash_password(password: str) -> str:
@@ -35,8 +37,24 @@ def create_access_token(user: User) -> str:
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
+def set_auth_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        config.AUTH_COOKIE_NAME, token,
+        max_age=ACCESS_TOKEN_TTL_MINUTES * 60, path="/",
+        httponly=True, secure=config.COOKIE_SECURE, samesite="strict",
+    )
+
+
+def clear_auth_cookie(response: Response) -> None:
+    response.delete_cookie(
+        config.AUTH_COOKIE_NAME, path="/",
+        httponly=True, secure=config.COOKIE_SECURE, samesite="strict",
+    )
+
+
 def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    request: Request,
+    bearer: Optional[str] = Depends(oauth2_scheme),
     session: Session = Depends(get_session),
 ) -> User:
     credentials_error = HTTPException(
@@ -44,6 +62,10 @@ def get_current_user(
         detail="Не удалось подтвердить авторизацию",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    # Явный заголовок важнее cookie (скрипт может действовать от другого пользователя).
+    token = bearer or request.cookies.get(config.AUTH_COOKIE_NAME)
+    if not token:
+        raise credentials_error
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id: Optional[str] = payload.get("sub")

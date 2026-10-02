@@ -11,6 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 os.environ["DATABASE_URL"] = "sqlite://"      # in-memory, до импорта приложения
 os.environ["GETCOURSE_SYNC_ENABLED"] = "0"    # без фонового опроса GetCourse в тестах
+os.environ["COOKIE_SECURE"] = "0"             # TestClient ходит по http — Secure-cookie не отправится
 
 import pytest
 from fastapi.testclient import TestClient
@@ -31,4 +32,7 @@ from app.main import app  # noqa: E402  (импорт после подмены 
 @pytest.fixture(scope="session")
 def client():
     with TestClient(app) as c:   # startup создаёт таблицы и сид
+        # Тесты авторизуются заголовком Bearer; cookie, которые ставит /auth/login,
+        # не копим — иначе запрос «без токена» неявно ушёл бы от последнего вошедшего.
+        c.event_hooks = {"response": [lambda _r: c.cookies.clear()]}
         yield c
