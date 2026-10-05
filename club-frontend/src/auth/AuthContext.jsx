@@ -36,13 +36,19 @@ export function AuthProvider({ children }) {
     return res.role;
   }
 
+  async function resetPassword(token, password) {
+    const res = await api.resetPassword(token, password);
+    setRole(res.role);
+    return res.role;
+  }
+
   async function logout() {
     try { await api.logout(); } catch { /* cookie всё равно истечёт */ }
     setRole(null);
   }
 
   return (
-    <AuthContext.Provider value={{ role, ready, isAuthed: !!role, login, register, logout }}>
+    <AuthContext.Provider value={{ role, ready, isAuthed: !!role, login, register, resetPassword, logout }}>
       {children}
     </AuthContext.Provider>
   );

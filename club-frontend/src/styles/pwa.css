@@ -852,6 +852,25 @@ button.pwa-rescard-person {
   opacity: 0.5;
   cursor: not-allowed;
 }
+/* Текстовая ссылка-кнопка «Забыли пароль?» под кнопкой входа. */
+.pwa-link-btn {
+  margin-top: 14px;
+  align-self: center;
+  background: none;
+  border: 0;
+  padding: 4px;
+  color: #9a9a9a;
+  font-family: inherit;
+  font-size: 15px;
+  letter-spacing: -0.3px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.pwa-link-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 /* ── Онбординг (анкета первого входа) в дизайне PWA ────────────────────── */
 .pwa-onb-inner {

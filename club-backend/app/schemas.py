@@ -67,6 +67,27 @@ class UserRegister(BaseModel):
         return v
 
 
+# --- Восстановление пароля ---
+class ForgotPasswordIn(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordIn(BaseModel):
+    token: str
+    password: str
+
+    @field_validator("password")
+    @classmethod
+    def _min_len(cls, v: str) -> str:
+        if len(v) < 6:
+            raise ValueError("Пароль должен быть не короче 6 символов")
+        return v
+
+
+class MessageOut(BaseModel):
+    detail: str
+
+
 # --- Пользователи (админка) ---
 class UserCreate(BaseModel):
     email: EmailStr
@@ -420,6 +441,28 @@ class GetCourseUpdate(BaseModel):
 
 class GcGroupUpdate(BaseModel):
     counts: bool
+
+
+# --- Почта для восстановления пароля (админка) ---
+class MailSettingsOut(BaseModel):
+    host: str
+    port: int
+    user: str
+    password_set: bool          # пароль приложения не отдаём наружу, только флаг «задан»
+    from_name: str
+    configured: bool            # логин и пароль заданы — восстановление пароля включено
+
+
+class MailSettingsUpdate(BaseModel):
+    host: Optional[str] = None
+    port: Optional[int] = None
+    user: Optional[str] = None
+    password: Optional[str] = None
+    from_name: Optional[str] = None
+
+
+class MailTestIn(BaseModel):
+    to: Optional[EmailStr] = None   # пусто — на адрес администратора
 
 
 class SyncOut(BaseModel):

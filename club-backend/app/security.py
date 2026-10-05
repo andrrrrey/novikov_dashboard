@@ -37,6 +37,37 @@ def create_access_token(user: User) -> str:
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
+# Ссылка восстановления пароля живёт час. Подпись завязана на текущий хеш пароля:
+# после смены пароля ссылка перестаёт работать (одноразовая без отдельной таблицы).
+RESET_TOKEN_TTL_MINUTES = 60
+_RESET_PURPOSE = "pwd-reset"
+
+
+def _reset_key(user: User) -> str:
+    return f"{SECRET_KEY}:{user.password_hash}"
+
+
+def create_reset_token(user: User) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(minutes=RESET_TOKEN_TTL_MINUTES)
+    payload = {"sub": str(user.id), "purpose": _RESET_PURPOSE, "exp": expire}
+    return jwt.encode(payload, _reset_key(user), algorithm=ALGORITHM)
+
+
+def user_from_reset_token(session: Session, token: str) -> Optional[User]:
+    """Пользователь по ссылке восстановления; None — ссылка неверна, устарела или уже использована."""
+    try:
+        unverified = jwt.decode(token, options={"verify_signature": False})
+        user = session.get(User, int(unverified.get("sub")))
+        if user is None:
+            return None
+        payload = jwt.decode(token, _reset_key(user), algorithms=[ALGORITHM])
+    except (jwt.PyJWTError, TypeError, ValueError):
+        return None
+    if payload.get("purpose") != _RESET_PURPOSE:
+        return None
+    return user
+
+
 def set_auth_cookie(response: Response, token: str) -> None:
     response.set_cookie(
         config.AUTH_COOKIE_NAME, token,

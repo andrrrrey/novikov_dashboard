@@ -56,6 +56,12 @@ export default function Login() {
               {busy ? "Входим…" : "Войти"}
             </button>
 
+            <button type="button" className="pwa-link-btn"
+                    onClick={() => navigate("/forgot-password", { state: { ...state, email: email.trim() } })}
+                    disabled={busy}>
+              Забыли пароль?
+            </button>
+
             <button type="button" className="pwa-btn-ghost-line"
                     onClick={() => navigate("/register", { state })} disabled={busy}>
               Создать аккаунт

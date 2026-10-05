@@ -4,8 +4,11 @@ GetCourse и связанный с ним прогресс в этот скоу�
 """
 
 import asyncio
+import html
 import json
+import logging
 import os
+import time
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -17,7 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.staticfiles import StaticFiles
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
 import app.config as config
 from app.config import (
@@ -26,6 +29,7 @@ from app.config import (
 from app.database import get_session, init_db, session_factory
 from app.demo import demo_dashboard, demo_profile, demo_residents
 from app.getcourse import getcourse_scheduler, sync_getcourse
+from app.mailer import mail_config, mail_configured, send_mail, smtp_error_text
 from app.models import (
     ContentCard, GcAssignment, GcGroup, QuizResult, TrajectoryHint, User, UserProfile,
     UserStats,
@@ -36,16 +40,19 @@ from app.progress import (
 from app.quiz_data import QUIZ, QUIZ_VERSION, answers_to_levels
 from app.schemas import (
     AdminStats, CardAdminOut, CardOut, CardUpdate, CategoryProgress, DashboardOut,
-    ExperienceOut, GcGroupOut, GcGroupUpdate, GetCourseOut, GetCourseUpdate, HintOut,
-    HintUpdate, InfoTipsOut, InfoTipsUpdate, KnowledgeOut, MeOut, ProfileOut, ProfileUpdate,
+    ExperienceOut, ForgotPasswordIn, GcGroupOut, GcGroupUpdate, GetCourseOut, GetCourseUpdate,
+    HintOut, HintUpdate, InfoTipsOut, InfoTipsUpdate, KnowledgeOut, MailSettingsOut,
+    MailSettingsUpdate, MailTestIn, MeOut, MessageOut, ProfileOut, ProfileUpdate,
     ProgressConfigOut, ProgressConfigUpdate, PromoOut, PromoUpdate, QuizAnswerOut,
-    QuizOption, QuizQuestionOut, QuizSubmit, ResidentLinkOut, ResidentOut, SyncOut, TokenResponse,
+    QuizOption, QuizQuestionOut, QuizSubmit, ResetPasswordIn, ResidentLinkOut, ResidentOut,
+    SyncOut, TokenResponse,
     UploadOut, UserCreate, UserOut, UserQuizOut, UserRegister, UserUpdate,
 )
 from app.scoring import evaluate, Aspect, ASPECT_LABELS
 from app.security import (
-    clear_auth_cookie, create_access_token, get_current_user, hash_password,
-    require_admin, require_api_key, set_auth_cookie, verify_password,
+    RESET_TOKEN_TTL_MINUTES, clear_auth_cookie, create_access_token, create_reset_token,
+    get_current_user, hash_password, require_admin, require_api_key, set_auth_cookie,
+    user_from_reset_token, verify_password,
 )
 from app.schemas import _normalize_telegram
 from app.seed import seed
@@ -65,6 +72,8 @@ ALLOWED_IMAGE_EXTS = {
     ".png": ".png", ".jpg": ".jpg", ".jpeg": ".jpg", ".webp": ".webp",
 }
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 МБ
+
+logger = logging.getLogger("club")
 
 
 async def _save_image_upload(file: UploadFile) -> str:
@@ -168,6 +177,87 @@ def register(
 @app.post("/auth/logout", status_code=204)
 def logout(response: Response):
     clear_auth_cookie(response)
+
+
+# ------------------------------------------------------ Восстановление пароля
+# Не чаще одного письма в минуту на адрес — чтобы форму не превратили в спам-пушку.
+RESET_COOLDOWN_SECONDS = 60
+_reset_sent_at: dict[str, float] = {}
+FORGOT_OK = "Если такой email зарегистрирован, мы отправили на него ссылку для смены пароля"
+
+
+def _reset_email(link: str) -> tuple[str, str, str]:
+    subject = "Восстановление пароля — Новиков Club"
+    text = (
+        "Здравствуйте!\n\n"
+        "Кто-то (возможно, вы) запросил смену пароля в личном кабинете Новиков Club.\n"
+        f"Чтобы задать новый пароль, перейдите по ссылке (действует {RESET_TOKEN_TTL_MINUTES} минут):\n\n"
+        f"{link}\n\n"
+        "Если вы не запрашивали смену пароля, просто проигнорируйте это письмо — "
+        "текущий пароль останется прежним.\n"
+    )
+    safe = html.escape(link, quote=True)
+    body = (
+        "<p>Здравствуйте!</p>"
+        "<p>Кто-то (возможно, вы) запросил смену пароля в личном кабинете Новиков Club.</p>"
+        f'<p><a href="{safe}">Задать новый пароль</a> — ссылка действует '
+        f"{RESET_TOKEN_TTL_MINUTES} минут.</p>"
+        "<p>Если вы не запрашивали смену пароля, просто проигнорируйте это письмо — "
+        "текущий пароль останется прежним.</p>"
+    )
+    return subject, text, body
+
+
+def _send_reset_mail(cfg: dict, to: str, link: str) -> None:
+    subject, text, body = _reset_email(link)
+    try:
+        send_mail(cfg, to, subject, text, body)
+    except Exception as err:   # фоновая задача: только логируем
+        logger.error("Письмо восстановления пароля на %s не отправлено: %s", to, smtp_error_text(err))
+
+
+@app.post("/auth/forgot-password", response_model=MessageOut)
+def forgot_password(
+    payload: ForgotPasswordIn,
+    background: BackgroundTasks,
+    session: Session = Depends(get_session),
+):
+    if not mail_configured(session):
+        raise HTTPException(
+            status_code=503,
+            detail="Восстановление пароля временно недоступно — обратитесь к администратору клуба",
+        )
+    email = payload.email.strip().lower()
+    # Ответ одинаковый, есть такой пользователь или нет, — чтобы не раскрывать базу адресов.
+    user = session.exec(select(User).where(func.lower(User.email) == email)).first()
+    if user is None or user.email.lower() == DEMO_EMAIL.lower():
+        return MessageOut(detail=FORGOT_OK)
+    now = time.monotonic()
+    if now - _reset_sent_at.get(email, -RESET_COOLDOWN_SECONDS) < RESET_COOLDOWN_SECONDS:
+        return MessageOut(detail=FORGOT_OK)
+    _reset_sent_at[email] = now
+    link = f"{config.PUBLIC_APP_URL}/reset-password?token={create_reset_token(user)}"
+    background.add_task(_send_reset_mail, mail_config(session), user.email, link)
+    return MessageOut(detail=FORGOT_OK)
+
+
+@app.post("/auth/reset-password", response_model=TokenResponse)
+def reset_password(
+    response: Response,
+    payload: ResetPasswordIn,
+    session: Session = Depends(get_session),
+):
+    user = user_from_reset_token(session, payload.token)
+    if user is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Ссылка недействительна или устарела. Запросите восстановление пароля ещё раз",
+        )
+    user.password_hash = hash_password(payload.password)   # заодно «гасит» ссылку
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return _issue_token(response, user)
 
 
 @app.get("/auth/me", response_model=MeOut)
@@ -954,6 +1044,65 @@ def update_info_tips(
             set_setting(session, key, (data[key] or "").strip())
     session.commit()
     return _info_tips_out(session)
+
+
+# ------------------------------------------- Админка: почта (восстановление пароля)
+def _mail_out(session: Session) -> MailSettingsOut:
+    cfg = mail_config(session)
+    return MailSettingsOut(
+        host=cfg["host"], port=cfg["port"], user=cfg["user"],
+        password_set=bool(cfg["password"]), from_name=cfg["from_name"],
+        configured=mail_configured(session),
+    )
+
+
+@app.get("/admin/mail", response_model=MailSettingsOut)
+def get_mail_settings(_: User = Depends(require_admin), session: Session = Depends(get_session)):
+    return _mail_out(session)
+
+
+@app.patch("/admin/mail", response_model=MailSettingsOut)
+def update_mail_settings(
+    payload: MailSettingsUpdate,
+    _: User = Depends(require_admin),
+    session: Session = Depends(get_session),
+):
+    data = payload.model_dump(exclude_unset=True)
+    if data.get("host") is not None:
+        set_setting(session, "smtp_host", data["host"].strip() or "smtp.yandex.ru")
+    if data.get("port") is not None:
+        if not 1 <= data["port"] <= 65535:
+            raise HTTPException(status_code=400, detail="Неверный порт")
+        set_setting(session, "smtp_port", str(data["port"]))
+    if data.get("user") is not None:
+        set_setting(session, "smtp_user", data["user"].strip())
+    if data.get("password") is not None:
+        # Яндекс показывает пароль приложения группами через пробел — пробелы убираем.
+        pwd = "".join(data["password"].split())
+        if pwd:   # пустую строку игнорируем, чтобы случайно не стереть пароль
+            set_setting(session, "smtp_password", pwd)
+    if data.get("from_name") is not None:
+        set_setting(session, "smtp_from_name", data["from_name"].strip())
+    session.commit()
+    return _mail_out(session)
+
+
+@app.post("/admin/mail/test", response_model=MessageOut)
+def test_mail_settings(
+    payload: MailTestIn,
+    admin: User = Depends(require_admin),
+    session: Session = Depends(get_session),
+):
+    to = payload.to or admin.email
+    try:
+        send_mail(
+            mail_config(session), to, "Проверка почты — Новиков Club",
+            "Это тестовое письмо из админки Новиков Club. Почта для восстановления "
+            "пароля настроена верно.\n",
+        )
+    except Exception as err:
+        raise HTTPException(status_code=400, detail=smtp_error_text(err))
+    return MessageOut(detail=f"Тестовое письмо отправлено на {to}")
 
 
 # ----------------------------------------------------- Админка: настройки GetCourse
