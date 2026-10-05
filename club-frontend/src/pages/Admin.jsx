@@ -5,7 +5,7 @@ import Avatar from "../components/Avatar.jsx";
 
 const ASPECT_LABEL = { marketing: "Маркетинг", sales: "Продажи", management: "Менеджмент" };
 
-// Вкладки админки. «Настройки» объединяет баннер, подсказки к показателям и GetCourse.
+// Вкладки админки. «Настройки» объединяет баннер, подсказки к показателям, GetCourse и почту.
 const ADMIN_TABS = [
   ["users", "Пользователи"],
   ["progress", "Опыт и Знания"],
@@ -214,6 +214,7 @@ export default function Admin() {
             <PromoBlock onError={setError} />
             <InfoTipsBlock onError={setError} />
             <GetCourseBlock onError={setError} />
+            <MailBlock onError={setError} />
           </>
         )}
       </main>
@@ -633,6 +634,125 @@ function GetCourseBlock({ onError }) {
         <div>Последняя синхронизация: {gc.last_sync ? new Date(gc.last_sync).toLocaleString() : "—"}</div>
         <div>Статус: {gc.last_status || "—"}</div>
         <div>Групп получено из GetCourse: <strong>{gc.groups.length}</strong>; задействовано в шкалах: <strong>{gc.total_lessons}</strong></div>
+      </div>
+    </div>
+  );
+}
+
+// --- Почта Яндекс 360: ящик, с которого уходят письма восстановления пароля ---
+function MailBlock({ onError }) {
+  const [mail, setMail] = useState(null);
+  const [form, setForm] = useState({ host: "", port: "465", user: "", from_name: "" });
+  const [password, setPassword] = useState("");
+  const [testTo, setTestTo] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [note, setNote] = useState("");
+  const [showHelp, setShowHelp] = useState(false);
+
+  async function load() {
+    const data = await api.getMail();
+    setMail(data);
+    setForm({ host: data.host, port: String(data.port), user: data.user, from_name: data.from_name });
+    if (!data.configured) setShowHelp(true);
+  }
+
+  useEffect(() => { load().catch((e) => onError(e.message)); }, []);
+  if (!mail) return null;
+
+  function set(key, val) { setForm((prev) => ({ ...prev, [key]: val })); }
+
+  async function save() {
+    setSaving(true); setNote("");
+    try {
+      const patch = { ...form, port: Number(form.port) || 465 };
+      if (password.trim()) patch.password = password;
+      await api.updateMail(patch);
+      setPassword("");
+      await load();
+      setNote("Сохранено");
+    } catch (err) { onError(err.message); } finally { setSaving(false); }
+  }
+
+  async function test() {
+    setTesting(true); setNote("");
+    try {
+      const r = await api.testMail(testTo.trim());
+      setNote(r.detail);
+    } catch (err) { onError(err.message); } finally { setTesting(false); }
+  }
+
+  return (
+    <div className="panel admin-block">
+      <h2 className="admin-h2">Почта — восстановление пароля</h2>
+      <p className="muted admin-note">
+        С этого ящика резидентам приходят письма со ссылкой для смены пароля («Забыли пароль?»
+        на экране входа). Пока логин и пароль приложения не заданы, восстановление выключено.
+        Статус: <strong>{mail.configured ? "настроено" : "не настроено"}</strong>.
+      </p>
+
+      <button type="button" className="btn admin-mini" onClick={() => setShowHelp((v) => !v)}>
+        {showHelp ? "Скрыть инструкцию" : "Где взять пароль приложения Яндекса?"}
+      </button>
+      {showHelp && (
+        <div className="admin-mail-help">
+          <p><strong>1. Разрешите почтовые программы в ящике.</strong> Войдите в ящик на mail.yandex.ru →
+            шестерёнка справа вверху → «Все настройки» → «Почтовые программы». Включите
+            «С сервера imap.yandex.ru по протоколу IMAP» и отметьте «Пароли приложений и OAuth-токены».
+            Сохраните.</p>
+          <p><strong>2. Создайте пароль приложения.</strong> Откройте id.yandex.ru (Яндекс ID этого ящика) →
+            «Безопасность» → «Пароли приложений» (или сразу id.yandex.ru/security/app-passwords) →
+            «Создать пароль приложения» → тип «Почта» → придумайте название, например «Новиков Club» →
+            «Создать». Скопируйте пароль — Яндекс покажет его один раз.</p>
+          <p><strong>3. Если пункта «Пароли приложений» нет</strong> — их запретил администратор организации.
+            Администратор Яндекс 360 включает их на admin.yandex.ru → «Безопасность» → «Пароли приложений».</p>
+          <p><strong>4. Заполните поля ниже:</strong> сервер <code>smtp.yandex.ru</code>, порт <code>465</code>,
+            логин — полный адрес ящика (например, <code>noreply@вашдомен.ru</code>), пароль — пароль приложения
+            из шага 2 (обычный пароль от почты не подойдёт). Нажмите «Сохранить», затем «Отправить тестовое письмо».</p>
+        </div>
+      )}
+
+      <div className="admin-gc-form">
+        <label className="admin-gc-field">
+          <span>SMTP-сервер</span>
+          <input className="input" type="text" placeholder="smtp.yandex.ru"
+                 value={form.host} onChange={(e) => set("host", e.target.value)} />
+        </label>
+        <label className="admin-gc-field admin-gc-field-sm">
+          <span>Порт</span>
+          <input className="input" type="number" min="1" max="65535" placeholder="465"
+                 value={form.port} onChange={(e) => set("port", e.target.value)} />
+        </label>
+      </div>
+      <div className="admin-gc-form">
+        <label className="admin-gc-field">
+          <span>Логин (адрес ящика, он же отправитель)</span>
+          <input className="input" type="email" placeholder="noreply@вашдомен.ru" autoComplete="off"
+                 value={form.user} onChange={(e) => set("user", e.target.value)} />
+        </label>
+        <label className="admin-gc-field">
+          <span>Пароль приложения {mail.password_set && <em className="muted">(задан — оставьте пустым, чтобы не менять)</em>}</span>
+          <input className="input" type="password" autoComplete="new-password"
+                 placeholder={mail.password_set ? "••••••••" : "пароль приложения из Яндекс ID"}
+                 value={password} onChange={(e) => setPassword(e.target.value)} />
+        </label>
+        <label className="admin-gc-field">
+          <span>Имя отправителя</span>
+          <input className="input" type="text" placeholder="Новиков Club"
+                 value={form.from_name} onChange={(e) => set("from_name", e.target.value)} />
+        </label>
+      </div>
+
+      <div className="admin-card-actions">
+        <button className="btn btn-primary admin-mini" onClick={save} disabled={saving}>
+          {saving ? "Сохраняем…" : "Сохранить"}
+        </button>
+        <input className="input admin-mail-test-to" type="email" placeholder="кому (по умолчанию — вам)"
+               value={testTo} onChange={(e) => setTestTo(e.target.value)} />
+        <button className="btn admin-mini" onClick={test} disabled={testing || !mail.configured}>
+          {testing ? "Отправляем…" : "Отправить тестовое письмо"}
+        </button>
+        {note && <span className="muted admin-gc-note">{note}</span>}
       </div>
     </div>
   );

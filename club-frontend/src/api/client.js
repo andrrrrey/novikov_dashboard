@@ -104,6 +104,12 @@ export const api = {
   register: (email, password) =>
     request("/auth/register", { method: "POST", body: { email, password }, auth: false }),
 
+  // Восстановление пароля: письмо со ссылкой и смена пароля по токену из ссылки
+  forgotPassword: (email) =>
+    request("/auth/forgot-password", { method: "POST", body: { email }, auth: false }),
+  resetPassword: (token, password) =>
+    request("/auth/reset-password", { method: "POST", body: { token, password }, auth: false }),
+
   // Текущая сессия по cookie (auth: false — 401 тут штатный ответ «не вошёл»)
   me: () => request("/auth/me", { auth: false }),
   logout: () => request("/auth/logout", { method: "POST", auth: false }),
@@ -178,6 +184,11 @@ export const api = {
   // Подсказки к показателям дашборда (попапы «?»)
   getInfoTips: () => request("/admin/info-tips"),
   updateInfoTips: (patch) => request("/admin/info-tips", { method: "PATCH", body: patch }),
+
+  // Почта для писем восстановления пароля (Яндекс 360)
+  getMail: () => request("/admin/mail"),
+  updateMail: (patch) => request("/admin/mail", { method: "PATCH", body: patch }),
+  testMail: (to) => request("/admin/mail/test", { method: "POST", body: to ? { to } : {} }),
 
   // GetCourse
   getGetcourse: () => request("/admin/getcourse"),

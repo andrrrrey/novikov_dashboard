@@ -219,6 +219,13 @@
 .admin-gc-field > span { color: var(--text-dim); }
 .admin-gc-field-sm { flex: 0 0 140px; }
 .admin-gc-note { align-self: center; }
+.admin-mail-help {
+  margin: 12px 0 16px; padding: 12px 14px; border-radius: 10px;
+  background: rgba(127, 127, 127, 0.08); font-size: 13px; line-height: 1.5;
+}
+.admin-mail-help p { margin: 0 0 8px; }
+.admin-mail-help p:last-child { margin-bottom: 0; }
+.admin-mail-test-to { flex: 0 1 240px; min-width: 0; }
 .admin-gc-status { font-size: 13px; margin-top: 12px; display: flex; flex-direction: column; gap: 3px; }
 .admin-gc-groups { margin-top: 16px; }
 .admin-gc-group {
